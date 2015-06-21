@@ -89,38 +89,22 @@ ion name ion0 = do
 phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase i ion0 = do
-  s <- get
-  let (r, s') = runState ion0 $ s { ionAction = []
-                                  , ionPhase = Phase Absolute Min i
-                                  }
-  put s'
-  return r
--- FIXME: This needs to comprehend the different phase types.
--- FIXME: This very likely can be written very easily with mapState too.
+phase i = withState $ \s -> s { ionAction = []
+                              , ionPhase = Phase Absolute Min i
+                              }
 
 -- | Specify a period for a sub-node. (The sub-node may readily override this
 -- period.)
 period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period i ion0 = do
-  s <- get
-  let (r, s') = runState ion0 $ s { ionAction = []
-                                  , ionPeriod = i
-                                  }
-  put s'
-  return r
--- FIXME: This very likely can be written very easily with mapState, e.g.
--- mapState $ \(a,s) -> (a, s { ionAction = [], ionPeriod = i })
--- but the above has some bugs.
+period i = withState $ \s -> s { ionAction = [], ionPeriod = i }
 
 -- | Dummy function for specifying an action, which right now is just a string
 -- for the sake of debugging.
 doThing :: String -> Ion ()
-doThing str = do
-  s <- get
-  put $ s { ionAction = ionAction s ++ [str] }
+doThing str = do s <- get
+                 put $ s { ionAction = ionAction s ++ [str] }
 
 -- | Dummy spec for the sake of testing
 test :: Ion ()
@@ -128,10 +112,17 @@ test = ion "Foo" $ do
 
   doThing "outside"
   
-  ion "Bar" $ do
+  period 20 $ phase 4 $ ion "Bar" $ do
+    -- FIXME: There is still an issue in which constructs like the above (which
+    -- work fine in Atom) have their period and phase 'escape' their scope and
+    -- apply to sub-nodes that are below.
+    -- Since 'ion' just inherits its starting context, and returns its starting
+    -- context (intentionally), I'm not sure of a quick way around this.
+    -- My expectation is that "phase N f" has an effect *only* inside 'f', and
+    -- nowhere past.
     doThing "foo"
     doThing "bar"
-    ion "Another" $ do
+    ion "Another" $ phase do
       doThing "other_bar"
 
   ion "Baz" $ do
