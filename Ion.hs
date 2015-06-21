@@ -122,7 +122,7 @@ test = ion "Foo" $ do
     -- nowhere past.
     doThing "foo"
     doThing "bar"
-    ion "Another" $ phase do
+    ion "Another" $ phase 4 $ do
       doThing "other_bar"
 
   ion "Baz" $ do
