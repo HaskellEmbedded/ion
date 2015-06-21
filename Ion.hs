@@ -89,16 +89,40 @@ ion name ion0 = do
 phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase i = withState $ \s -> s { ionAction = []
-                              , ionPhase = Phase Absolute Min i
-                              }
+phase i ion0 = do
+  -- Acquire the starting state:
+  start <- get
+  -- Run 'ion0' from there:
+  let ph = Phase Relative Min i
+      (r, s') = runState ion0 $ start { ionAction = []
+                                      , ionSub = []
+                                      , ionPhase = ph
+                                      }
+  -- Update our starting state with any sub-nodes:
+  put $ start { ionSub = ionSub start ++ ionSub s' }
+  -- Pass along the value that ion0 produced:
+  return r
+-- FIXME: This needs to comprehend the different phase types.
+-- FIXME: This entire pattern can either be factored out, or possibly replaced
+-- with some simpler function in Control.Monad.State.Lazy.
 
 -- | Specify a period for a sub-node. (The sub-node may readily override this
 -- period.)
 period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period i = withState $ \s -> s { ionAction = [], ionPeriod = i }
+period i ion0 = do
+  -- Acquire the starting state:
+  start <- get
+  -- Run 'ion0' from there:
+  let (r, s') = runState ion0 $ start { ionAction = []
+                                      , ionSub = []
+                                      , ionPeriod = i
+                                      }
+  -- Update our starting state with any sub-nodes:
+  put $ start { ionSub = ionSub start ++ ionSub s' }
+  -- Pass along the value that ion0 produced:
+  return r
 
 -- | Dummy function for specifying an action, which right now is just a string
 -- for the sake of debugging.
@@ -111,24 +135,18 @@ test :: Ion ()
 test = ion "Foo" $ do
 
   doThing "outside"
-  
-  period 20 $ phase 4 $ ion "Bar" $ do
-    -- FIXME: There is still an issue in which constructs like the above (which
-    -- work fine in Atom) have their period and phase 'escape' their scope and
-    -- apply to sub-nodes that are below.
-    -- Since 'ion' just inherits its starting context, and returns its starting
-    -- context (intentionally), I'm not sure of a quick way around this.
-    -- My expectation is that "phase N f" has an effect *only* inside 'f', and
-    -- nowhere past.
-    doThing "foo"
-    doThing "bar"
-    ion "Another" $ phase 4 $ do
-      doThing "other_bar"
 
   ion "Baz" $ do
     doThing "baz"
 
   period 10 $ phase 5 $ ion "Quux" $ do
     doThing "quux"
+  
+  period 20 $ phase 4 $ ion "Bar" $ do
+    doThing "foo"
+    doThing "bar"
+    ion "Another" $ phase 7 $ do
+      doThing "other_bar"
+      -- FIXME: The above doThing is getting completely lost.
 
-s = execState test defaultNode
+test_ = execState test defaultNode
