@@ -130,14 +130,23 @@ doThing :: String -> Ion ()
 doThing str = do s <- get
                  put $ s { ionAction = ionAction s ++ [str] }
 
+baz :: Ion ()
+baz = ion "Baz" $ phase 10 $ do
+  doThing "probably erased"
+
+baz2 :: Ion ()
+baz2 = phase 10 $ ion "Baz" $ do
+  doThing "probably not erased"
+
 -- | Dummy spec for the sake of testing
 test :: Ion ()
 test = ion "Foo" $ do
 
   doThing "outside"
 
-  ion "Baz" $ do
-    doThing "baz"
+  baz
+
+  baz2
 
   period 10 $ phase 5 $ ion "Quux" $ do
     doThing "quux"
@@ -148,5 +157,9 @@ test = ion "Foo" $ do
     ion "Another" $ phase 7 $ do
       doThing "other_bar"
       -- FIXME: The above doThing is getting completely lost.
+      -- FIXME: So is the 'phase 7' and 'phase 8' below...
+    ion "Yet another" $ phase 8 $ do
+      doThing "yet_another_bar"
+      -- So is this.
 
 test_ = execState test defaultNode
