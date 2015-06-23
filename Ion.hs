@@ -43,7 +43,7 @@ data PhaseType = Min | Exact deriving (Show)
 
 defaultNode = IonNode { ionPeriod = 1
                       , ionName = "root"
-                      , ionPhase = Phase Absolute Min 1
+                      , ionPhase = Phase Absolute Min 0
                       , ionPath = [ionName defaultNode]
                       , ionSub = []
                       , ionAction = []
@@ -81,7 +81,10 @@ ion name ion0 = do
                                   , ionAction = []
                                   }
   -- Update our sub-ions with whatever just ran:
-  put $ s { ionSub = ionSub s ++ [s'] }
+  put $ s { ionSub = ionSub s ++ [s']
+          --, ionPhase = ionPhase s'
+          --, ionPeriod = ionPeriod s'
+          }
   return r
 
 -- | Specify a phase for a sub-node. (The sub-node may readily override this
@@ -90,17 +93,10 @@ phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
 phase i ion0 = do
-  -- Acquire the starting state:
-  start <- get
-  -- Run 'ion0' from there:
-  let ph = Phase Relative Min i
-      (r, s') = runState ion0 $ start { ionAction = []
-                                      , ionSub = []
-                                      , ionPhase = ph
-                                      }
-  -- Update our starting state with any sub-nodes:
-  put $ start { ionSub = ionSub start ++ ionSub s' }
-  -- Pass along the value that ion0 produced:
+  s0 <- get
+  modify $ \s -> s { ionPhase = Phase Relative Min i }
+  r <- ion0
+  modify $ \s -> s { ionPhase = ionPhase s0 }
   return r
 -- FIXME: This needs to comprehend the different phase types.
 -- FIXME: This entire pattern can either be factored out, or possibly replaced
@@ -112,17 +108,11 @@ period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
 period i ion0 = do
-  -- Acquire the starting state:
-  start <- get
-  -- Run 'ion0' from there:
-  let (r, s') = runState ion0 $ start { ionAction = []
-                                      , ionSub = []
-                                      , ionPeriod = i
-                                      }
-  -- Update our starting state with any sub-nodes:
-  put $ start { ionSub = ionSub start ++ ionSub s' }
-  -- Pass along the value that ion0 produced:
-  return r
+  s0 <- get
+  modify $ \s -> s { ionPeriod = i }
+  r <- ion0
+  modify $ \s -> s { ionPeriod = ionPeriod s0 }
+  return r 
 
 -- | Dummy function for specifying an action, which right now is just a string
 -- for the sake of debugging.
@@ -133,6 +123,7 @@ doThing str = do s <- get
 baz :: Ion ()
 baz = ion "Baz" $ phase 10 $ do
   doThing "probably erased"
+  phase 20 $ doThing "probably overridden"
 
 baz2 :: Ion ()
 baz2 = phase 10 $ ion "Baz" $ do
@@ -142,7 +133,16 @@ baz2 = phase 10 $ ion "Baz" $ do
 test :: Ion ()
 test = ion "Foo" $ do
 
+  -- Period 1:
   doThing "outside"
+
+  -- This gets period 1:
+  period 15 $ do
+    doThing "period 15"
+
+  -- Period 1:
+  ion "outside2" $ do
+    doThing "also outside"
 
   baz
 
