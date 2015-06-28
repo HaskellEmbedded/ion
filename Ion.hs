@@ -9,33 +9,51 @@ re-implementation of Atom which, rather than generating C code directly (as
 Atom does), interfaces with another very powerful, more general EDSL,
 <http://ivorylang.org/ Ivory>.
 
+To-do items:
+
+   * I can do a relative phase; what about a relative period? That is, a
+period which is relative not to the base rate, but to the last rate that was
+inherited.
+   * Use Control.Monad.Except or ExceptT to get error-handling in this.
+   * The counterpart to 'cond' in Atom should compose as 'phase' and 'period'
+do.
+   * Figure out how to get Ivory effects into here (and what type of effects
+they should be).
+
 -}
+{-# LANGUAGE FlexibleInstances #-}
 
 module Ion where
 
 import           Control.Monad
 import           Control.Monad.State.Lazy
 
+import           Ivory.Language
+
 -- | The monad for expressing an Ion specification.
 type Ion a = State IonNode a
 
 -- | A node representing some context in the schedule (including its path and
 -- sub-nodes), and the actions this node includes.
-data IonNode = IonNode
-               { ionName :: String -- ^ Name of this node
-               , ionPath :: [String] -- ^ The path to this node (as a list of
-                            -- names, top-level first)
-               , ionSub :: [IonNode] -- ^ Sub-nodes we've accumulated
-               , ionPeriod :: Int -- ^ The current period of the base rate
-               , ionPhase :: Phase -- ^ The current phase within that period
-               , ionAction :: [String] -- ^ Actions to run (this is a dummy
-                              -- type for debugging now)
-               } deriving (Show)
+data IonNode =
+  IonNode
+  { ionName :: String -- ^ Name of this node
+  , ionPath :: [String] -- ^ The path to this node (as a list of names,
+    -- top-level first)
+  , ionSub :: [IonNode] -- ^ Sub-nodes we've accumulated
+  , ionPeriod :: Int -- ^ The current period of the base rate
+  , ionPhase :: Phase -- ^ The current phase within that period
+  , ionAction :: [String] -- ^ Actions to run (this is a dummy type for
+    -- debugging now)
+  , ionEff :: Ivory NoEffects () -- ^ The Ivory effect that this node should
+    -- perform. Note that this purposely forbids breaking, returning, and
+    -- allocating.
+  , ionUnbound :: Bool -- ^ True if this node has parameters (particularly for
+    -- the schedule context) that aren't yet 'bound' to a sub-node.
+  } deriving (Show)
 
--- Speculative ideas:
--- - I can do a relative phase; what about a relative period? That is, a period
--- which is relative not to the base rate, but to the last rate that was
--- inherited?
+instance Show (Ivory NoEffects ()) where
+  show _ = "Ivory NoEffects () [no information]"
 
 data Phase = Phase PhaseContext PhaseType Int deriving (Show)
 data PhaseContext = Absolute | Relative deriving (Show)
@@ -47,6 +65,8 @@ defaultNode = IonNode { ionPeriod = 1
                       , ionPath = [ionName defaultNode]
                       , ionSub = []
                       , ionAction = []
+                      , ionEff = return ()
+                      , ionUnbound = False
                       }
 
 -- | Produce a somewhat more human-readable representation of an 'IonNode'.
@@ -59,6 +79,7 @@ prettyPrint st =
                  , " ionPeriod = " ++ (show $ ionPeriod s)
                  , " ionPhase = " ++ (show $ ionPhase s)
                  , " ionAction = " ++ (show $ ionAction s)
+                 , " ionUnbound = " ++ (show $ ionUnbound s)
                  ] ++
                  (if null $ ionSub s
                   then []
@@ -79,6 +100,7 @@ ion name ion0 = do
                                   , ionPath = ionPath s ++ [name]
                                   , ionSub = []
                                   , ionAction = []
+                                  , ionUnbound = False
                                   }
   -- Update our sub-ions with whatever just ran:
   put $ s { ionSub = ionSub s ++ [s']
@@ -94,7 +116,7 @@ phase :: Int -- ^ Phase
          -> Ion a
 phase i ion0 = do
   s0 <- get
-  modify $ \s -> s { ionPhase = Phase Relative Min i }
+  modify $ \s -> s { ionPhase = Phase Relative Min i, ionUnbound = True }
   r <- ion0
   modify $ \s -> s { ionPhase = ionPhase s0 }
   return r
@@ -109,7 +131,7 @@ period :: Int -- ^ Period
           -> Ion a
 period i ion0 = do
   s0 <- get
-  modify $ \s -> s { ionPeriod = i }
+  modify $ \s -> s { ionPeriod = i, ionUnbound = True }
   r <- ion0
   modify $ \s -> s { ionPeriod = ionPeriod s0 }
   return r 
@@ -117,49 +139,15 @@ period i ion0 = do
 -- | Dummy function for specifying an action, which right now is just a string
 -- for the sake of debugging.
 doThing :: String -> Ion ()
-doThing str = do s <- get
-                 put $ s { ionAction = ionAction s ++ [str] }
+doThing str = do
+  s <- get
+  when (ionUnbound s) $ do
+    -- TODO: Figure out why this is completely not working.
+    error ("Action '" ++ str ++ " in path " ++ (show $ ionPath s) ++ ": " ++
+           "This node's parameters are unbound; create a new node with 'ion'.")
+  put $ s { ionAction = ionAction s ++ [str] }
 
-baz :: Ion ()
-baz = ion "Baz" $ phase 10 $ do
-  doThing "probably erased"
-  phase 20 $ doThing "probably overridden"
-
-baz2 :: Ion ()
-baz2 = phase 10 $ ion "Baz" $ do
-  doThing "probably not erased"
-
--- | Dummy spec for the sake of testing
-test :: Ion ()
-test = ion "Foo" $ do
-
-  -- Period 1:
-  doThing "outside"
-
-  -- This gets period 1:
-  period 15 $ do
-    doThing "period 15"
-
-  -- Period 1:
-  ion "outside2" $ do
-    doThing "also outside"
-
-  baz
-
-  baz2
-
-  period 10 $ phase 5 $ ion "Quux" $ do
-    doThing "quux"
-  
-  period 20 $ phase 4 $ ion "Bar" $ do
-    doThing "foo"
-    doThing "bar"
-    ion "Another" $ phase 7 $ do
-      doThing "other_bar"
-      -- FIXME: The above doThing is getting completely lost.
-      -- FIXME: So is the 'phase 7' and 'phase 8' below...
-    ion "Yet another" $ phase 8 $ do
-      doThing "yet_another_bar"
-      -- So is this.
-
-test_ = execState test defaultNode
+ivoryEff :: Ivory NoEffects () -> Ion ()
+ivoryEff iv = do
+  s <- get
+  put $ s { ionEff = ionEff s >> iv }

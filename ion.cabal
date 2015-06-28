@@ -17,10 +17,13 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Ion
+                     , IonIvory
+                     , IonTest
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.8 && <4.9
---                     , ivory >= 0.1.0.0
+  build-depends:       base >=4.8
+                     , ivory
+                     , ivory-backend-c
                      , mtl
   -- hs-source-dirs:      
   default-language:    Haskell2010
