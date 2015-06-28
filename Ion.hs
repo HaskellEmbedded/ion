@@ -43,9 +43,7 @@ data IonNode =
   , ionSub :: [IonNode] -- ^ Sub-nodes we've accumulated
   , ionPeriod :: Int -- ^ The current period of the base rate
   , ionPhase :: Phase -- ^ The current phase within that period
-  , ionAction :: [String] -- ^ Actions to run (this is a dummy type for
-    -- debugging now)
-  , ionEff :: Ivory NoEffects () -- ^ The Ivory effect that this node should
+  , ionAction :: Ivory NoEffects () -- ^ The Ivory effect that this node should
     -- perform. Note that this purposely forbids breaking, returning, and
     -- allocating.
   , ionUnbound :: Bool -- ^ True if this node has parameters (particularly for
@@ -64,8 +62,7 @@ defaultNode = IonNode { ionPeriod = 1
                       , ionPhase = Phase Absolute Min 0
                       , ionPath = [ionName defaultNode]
                       , ionSub = []
-                      , ionAction = []
-                      , ionEff = return ()
+                      , ionAction = return ()
                       , ionUnbound = False
                       }
 
@@ -99,7 +96,7 @@ ion name ion0 = do
   let (r, s') = runState ion0 $ s { ionName = name
                                   , ionPath = ionPath s ++ [name]
                                   , ionSub = []
-                                  , ionAction = []
+                                  , ionAction = return ()
                                   , ionUnbound = False
                                   }
   -- Update our sub-ions with whatever just ran:
@@ -136,18 +133,13 @@ period i ion0 = do
   modify $ \s -> s { ionPeriod = ionPeriod s0 }
   return r 
 
--- | Dummy function for specifying an action, which right now is just a string
--- for the sake of debugging.
-doThing :: String -> Ion ()
-doThing str = do
-  s <- get
-  when (ionUnbound s) $ do
-    -- TODO: Figure out why this is completely not working.
-    error ("Action '" ++ str ++ " in path " ++ (show $ ionPath s) ++ ": " ++
-           "This node's parameters are unbound; create a new node with 'ion'.")
-  put $ s { ionAction = ionAction s ++ [str] }
-
+-- | Add an Ivory action to this node. (I should probably give this a better
+-- name at some point.)
 ivoryEff :: Ivory NoEffects () -> Ion ()
 ivoryEff iv = do
   s <- get
-  put $ s { ionEff = ionEff s >> iv }
+  when (ionUnbound s) $ do
+    -- TODO: Figure out why this is completely not working.
+    error ("Action in path " ++ (show $ ionPath s) ++ ": " ++
+           "This node's parameters are unbound; create a new node with 'ion'.")
+  put $ s { ionAction = ionAction s >> iv }

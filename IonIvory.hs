@@ -1,4 +1,5 @@
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module IonIvory where
 
@@ -14,9 +15,10 @@ ionModule i0 = package "ion" $ do
 
 ionFunction :: Ion () -> Def ('[] :-> ())
 ionFunction i0 = proc "ionFunction" $ body $ do
-  getIvory $ execState i0 defaultNode
+  noReturn $ noBreak $ noAlloc $ getIvory $ execState i0 defaultNode
 
-getIvory :: IonNode -> Ivory eff ()
+  -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
+getIvory :: (eff ~ NoEffects) => IonNode -> Ivory eff ()
 getIvory i0 = do
   -- ifte_ present only to illuminate what's what
   ifte_ true
@@ -25,7 +27,6 @@ getIvory i0 = do
         comment $ "path = " ++ (show $ ionPath i0)
         comment $ "period = " ++ (show $ ionPeriod i0)
         comment $ "phase = " ++ (show $ ionPhase i0)
-        comment $ "action = " ++ (show $ ionAction i0)
-        ionEff i0
+        ionAction i0
         mapM_ getIvory $ ionSub i0)
     $ return ()
