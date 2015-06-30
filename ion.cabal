@@ -21,7 +21,7 @@ library
                      , IonTest
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base >=4.8
+  build-depends:       base
                      , ivory
                      , ivory-backend-c
                      , mtl

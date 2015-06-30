@@ -1,3 +1,12 @@
+{- |
+Module: IonIvory
+Description: Conversion from Ion to Ivory modules & procedures
+Copyright: (c) 2015 Chris Hodapp
+
+This contains functionality for converting the 'Ion' type to Ivory constructs.
+
+-}
+
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
@@ -9,16 +18,20 @@ import           Ivory.Language
 
 import           Ion
 
+-- | Generate an Ivory module from the given Ion spec.
 ionModule :: Ion () -> Module
 ionModule i0 = package "ion" $ do
-  incl $ ionFunction i0
+  incl $ ionProc i0
 
-ionFunction :: Ion () -> Def ('[] :-> ())
-ionFunction i0 = proc "ionFunction" $ body $ do
+-- | Generate an Ivory procedure for the given Ion spec.
+ionProc :: Ion () -> Def ('[] :-> ())
+ionProc i0 = proc "ionProc" $ body $ do
   noReturn $ noBreak $ noAlloc $ getIvory $ execState i0 defaultNode
 
-  -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
+-- | Produce an Ivory effect from an 'IonNode'.
 getIvory :: (eff ~ NoEffects) => IonNode -> Ivory eff ()
+-- Originally:
+-- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
 getIvory i0 = do
   -- ifte_ present only to illuminate what's what
   ifte_ true

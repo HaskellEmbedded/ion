@@ -1,3 +1,8 @@
+{- |
+Module: IonTest
+Description: Example Ion module & code generation
+Copyright: (c) 2015 Chris Hodapp
+-}
 module IonTest where
 
 import           Ivory.Language
