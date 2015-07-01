@@ -11,12 +11,18 @@ Atom does), interfaces with another very powerful, more general EDSL,
 
 To-do items:
 
+   * I need to convert over the 'schedule' function in Schedule.hs in Atom.
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
-   * Use Control.Monad.Except or ExceptT to get error-handling in this.
+   * Use Control.Monad.Except, ExceptT, or MonadError to get error-handling in
+this. (I think HStringTemplate in Ivory is pinned to version 0.8.3 which
+restricts us from using mtl 2.2.1 which has ExceptT.  However, MonadError is
+still present, as is ErrorT, albeit deprecated.)
    * The counterpart to 'cond' in Atom should compose as 'phase' and 'period'
 do.
+   * A combinator to explicitly disable a rule (also composing like 'cond')
+might be nice too.
    * Figure out how to get Ivory effects into here (and what type of effects
 they should be).
 
@@ -26,12 +32,16 @@ they should be).
 module Ion where
 
 import           Control.Monad
+--import           Control.Monad.Except
+import           Control.Monad.Error
 import           Control.Monad.State.Lazy
+import           Control.Monad.Trans.Class
 
 import           Ivory.Language
 
 -- | The monad for expressing an Ion specification.
-type Ion a = State IonNode a
+type IonM = State IonNode
+type Ion = ErrorT String IonM
 
 -- | A node representing some context in the schedule (including its path and
 -- sub-nodes), and the actions this node includes.
@@ -89,22 +99,25 @@ ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
 ion name ion0 = do
-  s <- get
+  s <- lift get
   -- Run 'ion0' starting from our current state, but with 'ionSub' and
   -- 'ionAction' cleared (those apply only for the immediate state), a new
   -- 'ionName', and incremented 'ionPath':
-  let (r, s') = runState ion0 $ s { ionName = name
-                                  , ionPath = ionPath s ++ [name]
-                                  , ionSub = []
-                                  , ionAction = return ()
-                                  , ionUnbound = False
-                                  }
+  let (r, s') = runState ion0 s { ionName = name
+                                , ionPath = ionPath s ++ [name]
+                                , ionSub = []
+                                , ionAction = return ()
+                                , ionUnbound = False
+                                }
+                -- runState doesn't take an Ion; it needs the internal IonM!
   -- Update our sub-ions with whatever just ran:
-  put $ s { ionSub = ionSub s ++ [s']
-          --, ionPhase = ionPhase s'
-          --, ionPeriod = ionPeriod s'
-          }
+  lift $ put $ s { ionSub = ionSub s ++ [s']
+                            --, ionPhase = ionPhase s'
+                            --, ionPeriod = ionPeriod s'
+                 }
   return r
+
+  -- Perhaps do I need to make a specialized lifting function?
 
 -- | Specify a phase for a sub-node. (The sub-node may readily override this
 -- phase.)

@@ -27,6 +27,7 @@ ionModule i0 = package "ion" $ do
 ionProc :: Ion () -> Def ('[] :-> ())
 ionProc i0 = proc "ionProc" $ body $ do
   noReturn $ noBreak $ noAlloc $ getIvory $ execState i0 defaultNode
+  -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
 -- | Produce an Ivory effect from an 'IonNode'.
 getIvory :: (eff ~ NoEffects) => IonNode -> Ivory eff ()
