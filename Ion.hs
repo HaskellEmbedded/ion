@@ -95,29 +95,35 @@ prettyPrint st =
   in unlines $ pretty st
 
 -- | Create a new named sub-node.
-ion :: String -- ^ Name
+{-ion_ :: String -- ^ Name
        -> Ion a -- ^ Sub-node
-       -> Ion a
+       -> Ion a-}
+--ion_ :: Monad m => String -> m (IonM a) -> m (IonM a)
+ion_ :: String -> ErrorT String IonM a -> ErrorT String IonM a
+ion_ name ion0 = liftM (ion name) ion0
+-- Why does the above type sig fail to work?
+
+-- | Create a new named sub-node.
+ion :: String -- ^ Name
+       -> IonM a -- ^ Sub-node
+       -> IonM a
 ion name ion0 = do
-  s <- lift get
+  s <- get
   -- Run 'ion0' starting from our current state, but with 'ionSub' and
   -- 'ionAction' cleared (those apply only for the immediate state), a new
   -- 'ionName', and incremented 'ionPath':
-  let (r, s') = runState ion0 s { ionName = name
-                                , ionPath = ionPath s ++ [name]
-                                , ionSub = []
-                                , ionAction = return ()
-                                , ionUnbound = False
-                                }
-                -- runState doesn't take an Ion; it needs the internal IonM!
+  let (r, s') = runState ion0 $ s { ionName = name
+                                  , ionPath = ionPath s ++ [name]
+                                  , ionSub = []
+                                  , ionAction = return ()
+                                  , ionUnbound = False
+                                  }
   -- Update our sub-ions with whatever just ran:
-  lift $ put $ s { ionSub = ionSub s ++ [s']
-                            --, ionPhase = ionPhase s'
-                            --, ionPeriod = ionPeriod s'
-                 }
+  put $ s { ionSub = ionSub s ++ [s']
+          --, ionPhase = ionPhase s'
+          --, ionPeriod = ionPeriod s'
+          }
   return r
-
-  -- Perhaps do I need to make a specialized lifting function?
 
 -- | Specify a phase for a sub-node. (The sub-node may readily override this
 -- phase.)
