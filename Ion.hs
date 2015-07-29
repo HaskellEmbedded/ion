@@ -15,16 +15,14 @@ To-do items:
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
-   * Use Control.Monad.Except, ExceptT, or MonadError to get error-handling in
-this. (I think HStringTemplate in Ivory is pinned to version 0.8.3 which
-restricts us from using mtl 2.2.1 which has ExceptT.  However, MonadError is
-still present, as is ErrorT, albeit deprecated.)
+   * Use Control.Monad.Except or ExceptT to get error-handling in this.
    * The counterpart to 'cond' in Atom should compose as 'phase' and 'period'
 do.
    * A combinator to explicitly disable a rule (also composing like 'cond')
 might be nice too.
    * Figure out how to get Ivory effects into here (and what type of effects
 they should be).
+   * Use Control.Exception for errors.
 
 -}
 {-# LANGUAGE FlexibleInstances #-}
@@ -32,16 +30,12 @@ they should be).
 module Ion where
 
 import           Control.Monad
---import           Control.Monad.Except
-import           Control.Monad.Error
 import           Control.Monad.State.Lazy
-import           Control.Monad.Trans.Class
 
 import           Ivory.Language
 
 -- | The monad for expressing an Ion specification.
-type IonM = State IonNode
-type Ion = ErrorT String IonM
+type Ion a = State IonNode a
 
 -- | A node representing some context in the schedule (including its path and
 -- sub-nodes), and the actions this node includes.
@@ -95,18 +89,9 @@ prettyPrint st =
   in unlines $ pretty st
 
 -- | Create a new named sub-node.
-{-ion_ :: String -- ^ Name
-       -> Ion a -- ^ Sub-node
-       -> Ion a-}
---ion_ :: Monad m => String -> m (IonM a) -> m (IonM a)
-ion_ :: String -> ErrorT String IonM a -> ErrorT String IonM a
-ion_ name ion0 = liftM (ion name) ion0
--- Why does the above type sig fail to work?
-
--- | Create a new named sub-node.
 ion :: String -- ^ Name
-       -> IonM a -- ^ Sub-node
-       -> IonM a
+       -> Ion a -- ^ Sub-node
+       -> Ion a
 ion name ion0 = do
   s <- get
   -- Run 'ion0' starting from our current state, but with 'ionSub' and
