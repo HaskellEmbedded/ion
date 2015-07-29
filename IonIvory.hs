@@ -12,6 +12,7 @@ This contains functionality for converting the 'Ion' type to Ivory constructs.
 {-# LANGUAGE TypeOperators #-}
 module IonIvory where
 
+import           Control.Exception
 import           Control.Monad.State.Lazy
 
 import           Ivory.Language
@@ -21,12 +22,13 @@ import           Ion
 -- | Generate an Ivory module from the given Ion spec.
 ionModule :: Ion () -> Module
 ionModule i0 = package "ion" $ do
-  incl $ ionProc i0
+  mapM_ incl $ ionProc i0
 
--- | Generate an Ivory procedure for the given Ion spec.
-ionProc :: Ion () -> Def ('[] :-> ())
-ionProc i0 = proc "ionProc" $ body $ do
-  noReturn $ noBreak $ noAlloc $ getIvory $ execState i0 defaultNode
+-- | Generate Ivory procedures for the given Ion spec.
+ionProc :: Ion () -> [Def ('[] :-> ())]
+ionProc i0 = map mkProc $ flatten $ execState i0 defaultNode
+  where mkProc node = proc ("ion_" ++ ionName node) $ body $ do
+          noReturn $ noBreak $ noAlloc $ getIvory node
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
 -- | Produce an Ivory effect from an 'IonNode'.
@@ -34,18 +36,18 @@ getIvory :: (eff ~ NoEffects) => IonNode -> Ivory eff ()
 -- Originally:
 -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
 getIvory i0 = do
-  -- ifte_ present only to illuminate what's what
-  ifte_ true
-    (do
-        comment $ "name = " ++ (show $ ionName i0)
-        comment $ "path = " ++ (show $ ionPath i0)
-        comment $ "period = " ++ (show $ ionPeriod i0)
-        comment $ "phase = " ++ (show $ ionPhase i0)
-        ionAction i0
-        mapM_ getIvory $ ionSub i0)
-    $ return ()
-
--- Should I make IonNode traversable?
+  comment $ "Node: " ++ (foldl1 (\s p -> s ++ "." ++ p) $ ionPath i0)
+  comment $ "Period: " ++ (show $ ionPeriod i0)
+  comment $ "Phase: " ++ (show $ ionPhase i0)
+  case (ionAction i0) of
+   Nothing -> comment "No actions"
+   Just a -> do
+     --when (ionUnbound i0) $ throw $ NodeUnboundException i0
+     when (ionUnbound i0) $ comment $ "WARNING: Unbound params"
+     a
+  let numSubs = length $ ionSub i0
+  when (numSubs > 0) $ do
+    comment $ "WARNING: Ignored " ++ show numSubs ++ " sub-nodes"
 
 -- The main Atom function flattens everything, and this I should probably do
 -- as well.  It follows the pattern of:
@@ -55,5 +57,5 @@ getIvory i0 = do
 --    } else {
 --       increment clock
 -- }
--- So, how do I achieve this flattening?  Is it part of the schedule function?
 
+-- I am generating functions, but I am not yet calling them.

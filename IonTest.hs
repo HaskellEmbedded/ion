@@ -5,6 +5,8 @@ Copyright: (c) 2015 Chris Hodapp
 -}
 module IonTest where
 
+import           Control.Exception
+
 import           Ivory.Language
 import           Ivory.Compile.C.CmdlineFrontend
 
@@ -17,7 +19,9 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-  runCompiler [ionModule test] [] ivoryOpts
+  catch
+    (runCompiler [ionModule test] [] ivoryOpts)
+    $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
 
 baz :: Ion ()
 baz = ion "Baz" $ phase 10 $ do
@@ -32,35 +36,32 @@ baz2 = phase 10 $ ion "Baz" $ do
 test :: Ion ()
 test = ion "Foo" $ do
 
+  {-
+  
   -- Period 1:
   ivoryEff $ comment "outside"
 
-  -- This gets period 1:
-  period 15 $ do
-    ivoryEff $ comment "period 15"
+  -- This is an error, but not a very articulate one:
+  --period 15 $ do
+  --   ivoryEff $ comment "period 15"
 
   -- Period 1:
   ion "outside2" $ do
     ivoryEff $ do
       comment "also outside"
 
-  baz
-
+  -- This should NOT be an error:
   baz2
 
   period 10 $ phase 5 $ ion "Quux" $ do
     ivoryEff $ comment "quux"
-  
+
+  -}
+
   period 20 $ phase 4 $ ion "Bar" $ do
     ivoryEff $ comment "foo"
     ivoryEff $ comment "bar"
-    ion "Another" $ phase 7 $ do
-      ivoryEff $ comment "other_bar"
-      -- FIXME: The above ivoryEff $ comment is getting completely lost.
-      -- FIXME: So is the 'phase 7' and 'phase 8' below...
-    ion "Yet another" $ phase 8 $ do
-      ivoryEff $ comment "yet_another_bar"
-      -- So is this.
+    phase 6 $ ion "phase 6" $ do
+      ivoryEff $ comment "phase 6 comment"
 
 -- test_ = execState test defaultNode
-

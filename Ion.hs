@@ -22,14 +22,18 @@ might be nice too.
    * Figure out how to get Ivory effects into here (and what type of effects
 they should be).
    * Use Control.Exception for errors.
+   * I need to either mandate that Ion names must be C identifiers, or make
+a way to sanitize them into C identifiers.
 
 -}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Ion where
 
+import           Control.Exception
 import           Control.Monad
 import           Control.Monad.State.Lazy
+import           Data.Typeable ( Typeable )
 
 import           Ivory.Language
 
@@ -46,9 +50,9 @@ data IonNode =
   , ionSub :: [IonNode] -- ^ Sub-nodes we've accumulated
   , ionPeriod :: Int -- ^ The current period of the base rate
   , ionPhase :: Phase -- ^ The current phase within that period
-  , ionAction :: Ivory NoEffects () -- ^ The Ivory effect that this node should
-    -- perform. Note that this purposely forbids breaking, returning, and
-    -- allocating.
+  , ionAction :: Maybe (Ivory NoEffects ()) -- ^ The optional Ivory effect that
+    -- this node should perform. Note that this purposely forbids breaking,
+    -- returning, and allocating.
   , ionUnbound :: Bool -- ^ True if this node has parameters (particularly for
     -- the schedule context) that aren't yet 'bound' to a sub-node.
   } deriving (Show)
@@ -65,7 +69,7 @@ defaultNode = IonNode { ionPeriod = 1
                       , ionPhase = Phase Absolute Min 0
                       , ionPath = [ionName defaultNode]
                       , ionSub = []
-                      , ionAction = return ()
+                      , ionAction = Nothing
                       , ionUnbound = False
                       }
 
@@ -99,11 +103,12 @@ ion name ion0 = do
   let (r, s') = runState ion0 $ s { ionName = name
                                   , ionPath = ionPath s ++ [name]
                                   , ionSub = []
-                                  , ionAction = return ()
+                                  , ionAction = Nothing
                                   , ionUnbound = False
                                   }
   -- Update our sub-ions with whatever just ran:
   put $ s { ionSub = ionSub s ++ [s']
+          --, ionUnbound = False
           --, ionPhase = ionPhase s'
           --, ionPeriod = ionPeriod s'
           }
@@ -141,14 +146,17 @@ period i ion0 = do
 ivoryEff :: Ivory NoEffects () -> Ion ()
 ivoryEff iv = do
   s <- get
-  when (ionUnbound s) $ do
-    -- TODO: Make this an exception.
-    error ("Action in path " ++ (show $ ionPath s) ++ ": " ++
-           "This node's parameters are unbound; create a new node with 'ion'.")
-  put $ s { ionAction = ionAction s >> iv }
+  let newAct = case ionAction s of Nothing  -> Just iv
+                                   Just act -> Just (act >> iv)
+  put $ s { ionAction = newAct }
 
--- | Given a hierarchical IonNode, turn it into a flat list for which 'ionSub'
--- is empty for each element, and all parameters are made absolute.
+-- | Given a hierarchical 'IonNode', turn it into a flat list for which
+-- 'ionSub' is empty for each element, and all parameters are made absolute.
 flatten :: IonNode -> [IonNode]
 flatten node = fl node []
   where fl n acc = (n { ionSub = [] }) : foldr fl acc (ionSub n)
+
+data IonException = NodeUnboundException IonNode
+    deriving (Show, Typeable)
+
+instance Exception IonException
