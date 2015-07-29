@@ -36,8 +36,6 @@ baz2 = phase 10 $ ion "Baz" $ do
 test :: Ion ()
 test = ion "Foo" $ do
 
-  {-
-  
   -- Period 1:
   ivoryEff $ comment "outside"
 
@@ -55,8 +53,6 @@ test = ion "Foo" $ do
 
   period 10 $ phase 5 $ ion "Quux" $ do
     ivoryEff $ comment "quux"
-
-  -}
 
   period 20 $ phase 4 $ ion "Bar" $ do
     ivoryEff $ comment "foo"

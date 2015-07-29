@@ -26,7 +26,7 @@ ionModule i0 = package "ion" $ do
 
 -- | Generate Ivory procedures for the given Ion spec.
 ionProc :: Ion () -> [Def ('[] :-> ())]
-ionProc i0 = map mkProc $ flatten $ execState i0 defaultNode
+ionProc i0 = map mkProc $ flatten $ ionNode i0
   where mkProc node = proc ("ion_" ++ ionName node) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory node
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.

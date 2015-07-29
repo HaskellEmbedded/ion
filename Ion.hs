@@ -30,15 +30,32 @@ a way to sanitize them into C identifiers.
 
 module Ion where
 
+import           Control.Applicative
 import           Control.Exception
 import           Control.Monad
-import           Control.Monad.State.Lazy
+import           Data.Functor
 import           Data.Typeable ( Typeable )
 
 import           Ivory.Language
 
 -- | The monad for expressing an Ion specification.
-type Ion a = State IonNode a
+data Ion a = Ion IonNode a
+
+ionNode :: Ion a -> IonNode
+ionNode (Ion node _) = node
+
+instance Functor Ion where
+  fmap f (Ion n a) = Ion n (f a)
+
+instance Applicative Ion where
+  pure = return -- Ion defaultNode
+  Ion n1 f <*> Ion n2 a = Ion n2 (f a) -- correct?
+
+instance Monad Ion where
+
+  Ion n1 f >>= k = k f
+  
+  return = Ion defaultNode
 
 -- | A node representing some context in the schedule (including its path and
 -- sub-nodes), and the actions this node includes.
@@ -95,60 +112,33 @@ prettyPrint st =
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
-ion name ion0 = do
-  s <- get
-  -- Run 'ion0' starting from our current state, but with 'ionSub' and
-  -- 'ionAction' cleared (those apply only for the immediate state), a new
-  -- 'ionName', and incremented 'ionPath':
-  let (r, s') = runState ion0 $ s { ionName = name
-                                  , ionPath = ionPath s ++ [name]
-                                  , ionSub = []
-                                  , ionAction = Nothing
-                                  , ionUnbound = False
-                                  }
-  -- Update our sub-ions with whatever just ran:
-  put $ s { ionSub = ionSub s ++ [s']
-          --, ionUnbound = False
-          --, ionPhase = ionPhase s'
-          --, ionPeriod = ionPeriod s'
-          }
-  return r
+ion name (Ion node a) = Ion node' a
+  where node' = defaultNode { ionName = name
+                            , ionPath = ionPath node ++ [name]
+                            , ionSub = [node]
+                            }
 
 -- | Specify a phase for a sub-node. (The sub-node may readily override this
 -- phase.)
 phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase i ion0 = do
-  s0 <- get
-  modify $ \s -> s { ionPhase = Phase Relative Min i, ionUnbound = True }
-  r <- ion0
-  modify $ \s -> s { ionPhase = ionPhase s0 }
-  return r
+phase i (Ion node a) = Ion node' a
+  where node' = node { ionPhase = Phase Relative Min i }
 -- FIXME: This needs to comprehend the different phase types.
--- FIXME: This entire pattern can either be factored out, or possibly replaced
--- with some simpler function in Control.Monad.State.Lazy.
 
 -- | Specify a period for a sub-node. (The sub-node may readily override this
 -- period.)
 period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period i ion0 = do
-  s0 <- get
-  modify $ \s -> s { ionPeriod = i, ionUnbound = True }
-  r <- ion0
-  modify $ \s -> s { ionPeriod = ionPeriod s0 }
-  return r 
+period i (Ion node a) = Ion node' a
+  where node' = node { ionPeriod = i }
 
 -- | Add an Ivory action to this node. (I should probably give this a better
 -- name at some point, and maybe move it into IonIvory.)
 ivoryEff :: Ivory NoEffects () -> Ion ()
-ivoryEff iv = do
-  s <- get
-  let newAct = case ionAction s of Nothing  -> Just iv
-                                   Just act -> Just (act >> iv)
-  put $ s { ionAction = newAct }
+ivoryEff iv = Ion (defaultNode { ionAction = Just iv }) ()
 
 -- | Given a hierarchical 'IonNode', turn it into a flat list for which
 -- 'ionSub' is empty for each element, and all parameters are made absolute.
