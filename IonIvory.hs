@@ -44,3 +44,16 @@ getIvory i0 = do
         ionAction i0
         mapM_ getIvory $ ionSub i0)
     $ return ()
+
+-- Should I make IonNode traversable?
+
+-- The main Atom function flattens everything, and this I should probably do
+-- as well.  It follows the pattern of:
+-- {
+--    if (...) {
+--       call out...
+--    } else {
+--       increment clock
+-- }
+-- So, how do I achieve this flattening?  Is it part of the schedule function?
+

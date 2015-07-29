@@ -11,11 +11,10 @@ Atom does), interfaces with another very powerful, more general EDSL,
 
 To-do items:
 
-   * I need to convert over the 'schedule' function in Schedule.hs in Atom.
+   * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
-   * Use Control.Monad.Except or ExceptT to get error-handling in this.
    * The counterpart to 'cond' in Atom should compose as 'phase' and 'period'
 do.
    * A combinator to explicitly disable a rule (also composing like 'cond')
@@ -138,12 +137,18 @@ period i ion0 = do
   return r 
 
 -- | Add an Ivory action to this node. (I should probably give this a better
--- name at some point.)
+-- name at some point, and maybe move it into IonIvory.)
 ivoryEff :: Ivory NoEffects () -> Ion ()
 ivoryEff iv = do
   s <- get
   when (ionUnbound s) $ do
-    -- TODO: Figure out why this is completely not working.
+    -- TODO: Make this an exception.
     error ("Action in path " ++ (show $ ionPath s) ++ ": " ++
            "This node's parameters are unbound; create a new node with 'ion'.")
   put $ s { ionAction = ionAction s >> iv }
+
+-- | Given a hierarchical IonNode, turn it into a flat list for which 'ionSub'
+-- is empty for each element, and all parameters are made absolute.
+flatten :: IonNode -> [IonNode]
+flatten node = fl node []
+  where fl n acc = (n { ionSub = [] }) : foldr fl acc (ionSub n)
