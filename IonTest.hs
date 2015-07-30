@@ -36,13 +36,21 @@ baz2 = phase 10 $ ion "Baz" $ do
 test :: Ion ()
 test = ion "Foo" $ do
 
+  -- ivoryEff $ comment "outside"
+  
   -- Period 1:
-  ivoryEff $ comment "outside"
+  ion "Bar" $ do
+    ivoryEff $ comment "Foo.Bar"
+    ivoryEff $ comment "Foo.Bar 2"
 
-  -- This is an error, but not a very articulate one:
-  --period 15 $ do
-  --   ivoryEff $ comment "period 15"
+  ion "Baz" $ period 15 $ do
+    ivoryEff $ comment "Foo.Baz period 15"
+    ivoryEff $ comment "Foo.Baz period 15b"
 
+  --period 20 $ do
+    --ivoryEff $ comment "period 20"
+
+  {-
   -- Period 1:
   ion "outside2" $ do
     ivoryEff $ do
@@ -59,5 +67,6 @@ test = ion "Foo" $ do
     ivoryEff $ comment "bar"
     phase 6 $ ion "phase 6" $ do
       ivoryEff $ comment "phase 6 comment"
+  -}
 
 -- test_ = execState test defaultNode

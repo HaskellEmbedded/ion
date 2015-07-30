@@ -39,39 +39,58 @@ import           Data.Typeable ( Typeable )
 import           Ivory.Language
 
 -- | The monad for expressing an Ion specification.
-data Ion a = Ion IonNode a
+data Ion a = Ion { ionNode :: IonNode -- ^ The current node
+                 , ionAccum :: [IonNode] -- ^ Accumulated 'old' nodes
+                 , ionParent :: IonNode -- ^ The inherited context
+                 , ionVal :: a
+                 } deriving (Show)
 
-ionNode :: Ion a -> IonNode
-ionNode (Ion node _) = node
+ionNodes :: Ion a -> [IonNode]
+ionNodes i = ionNode i : ionAccum i
 
 instance Functor Ion where
-  fmap f (Ion n a) = Ion n (f a)
+  fmap f ion = ion { ionVal = f $ ionVal ion }
 
 instance Applicative Ion where
-  pure = return -- Ion defaultNode
-  Ion n1 f <*> Ion n2 a = Ion n2 (f a) -- correct?
+  pure = return
+  (<*>) = ap {-Ion { ionNode = ionNode ionA
+                       , ionAccum = ionNode ionFn :
+                                    (ionAccum ionFn ++ ionAccum ionA)
+                       , ionParent = ionParent ionA
+                       , ionVal = (ionVal ionFn) (ionVal ionA)
+                       }-}
 
 instance Monad Ion where
 
-  Ion n1 f >>= k = k f
-  
-  return = Ion defaultNode
+  ion1 >>= fn = Ion { ionNode = parent
+                    , ionAccum = node2' : ionAccum ion1
+                    , ionParent = parent
+                    , ionVal = ionVal ion2
+                    }
+    where ion2 = fn (ionVal ion1)
+          node1 = ionNode ion1
+          node2 = (ionNode ion2)
+          node2' = node2 { ionAction = ionAction node1 ++ ionAction node2 }
+          parent = ionParent ion1
 
--- | A node representing some context in the schedule (including its path and
--- sub-nodes), and the actions this node includes.
+  return a = Ion { ionNode = defaultNode
+                 , ionAccum = []
+                 , ionParent = defaultNode
+                 , ionVal = a
+                 }
+
+-- | A node representing some context in the schedule, and the actions this
+-- node includes.
 data IonNode =
   IonNode
   { ionName :: String -- ^ Name of this node
   , ionPath :: [String] -- ^ The path to this node (as a list of names,
     -- top-level first)
-  , ionSub :: [IonNode] -- ^ Sub-nodes we've accumulated
   , ionPeriod :: Int -- ^ The current period of the base rate
   , ionPhase :: Phase -- ^ The current phase within that period
-  , ionAction :: Maybe (Ivory NoEffects ()) -- ^ The optional Ivory effect that
-    -- this node should perform. Note that this purposely forbids breaking,
-    -- returning, and allocating.
-  , ionUnbound :: Bool -- ^ True if this node has parameters (particularly for
-    -- the schedule context) that aren't yet 'bound' to a sub-node.
+  , ionAction :: [Ivory NoEffects ()] -- ^ The Ivory effects that this node
+    -- should perform. Note that this purposely forbids breaking, returning,
+    -- and allocating.
   } deriving (Show)
 
 instance Show (Ivory NoEffects ()) where
@@ -85,46 +104,42 @@ defaultNode = IonNode { ionPeriod = 1
                       , ionName = "root"
                       , ionPhase = Phase Absolute Min 0
                       , ionPath = [ionName defaultNode]
-                      , ionSub = []
-                      , ionAction = Nothing
-                      , ionUnbound = False
+                      , ionAction = []
                       }
 
 -- | Produce a somewhat more human-readable representation of an 'IonNode'.
 prettyPrint :: IonNode -> String
-prettyPrint st =
-  let sub s = join $ map pretty $ ionSub s
-      pretty s = [ "IonNode {"
-                 , " ionName = " ++ (show $ ionName s)
-                 , " ionPath = " ++ (show $ ionPath s)
-                 , " ionPeriod = " ++ (show $ ionPeriod s)
-                 , " ionPhase = " ++ (show $ ionPhase s)
-                 , " ionAction = " ++ (show $ ionAction s)
-                 , " ionUnbound = " ++ (show $ ionUnbound s)
-                 ] ++
-                 (if null $ ionSub s
-                  then []
-                  else " ionSub =" : (map ("    " ++) $ sub s)) ++
-                 ["}"]
-  in unlines $ pretty st
+prettyPrint st = unlines $ pretty st
+  where --sub s = join $ map pretty $ ionSub s
+    pretty s = [ "IonNode {"
+               , " ionName = " ++ (show $ ionName s)
+               , " ionPath = " ++ (show $ ionPath s)
+               , " ionPeriod = " ++ (show $ ionPeriod s)
+               , " ionPhase = " ++ (show $ ionPhase s)
+               , " ionAction = " ++ (show $ ionAction s)
+               , "}"]
 
 -- | Create a new named sub-node.
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
-ion name (Ion node a) = Ion node' a
-  where node' = defaultNode { ionName = name
-                            , ionPath = ionPath node ++ [name]
-                            , ionSub = [node]
-                            }
+ion name ion_ = ion_ { ionNode = node'
+                     , ionParent = node
+                     }
+  where node = ionNode ion_
+        node' = node { ionName = name
+                     , ionPath = name : (ionPath node)
+                     }
 
 -- | Specify a phase for a sub-node. (The sub-node may readily override this
 -- phase.)
 phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase i (Ion node a) = Ion node' a
-  where node' = node { ionPhase = Phase Relative Min i }
+phase i ion_ = ion_ { ionNode = node { ionPhase = Phase Relative Min i }
+                    , ionParent = node
+                    }
+  where node = ionNode ion_
 -- FIXME: This needs to comprehend the different phase types.
 
 -- | Specify a period for a sub-node. (The sub-node may readily override this
@@ -132,19 +147,29 @@ phase i (Ion node a) = Ion node' a
 period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period i (Ion node a) = Ion node' a
-  where node' = node { ionPeriod = i }
+period i ion_ = ion_ { ionNode = node'
+                     , ionParent = node
+                     }
+  where node = ionNode ion_
+        node' = node { ionPeriod = i
+                     }
 
 -- | Add an Ivory action to this node. (I should probably give this a better
 -- name at some point, and maybe move it into IonIvory.)
 ivoryEff :: Ivory NoEffects () -> Ion ()
-ivoryEff iv = Ion (defaultNode { ionAction = Just iv }) ()
+ivoryEff iv = Ion { ionNode = defaultNode { ionAction = [iv] }
+                  , ionAccum = []
+                  , ionVal = ()
+                  , ionParent = defaultNode
+                  }
 
 -- | Given a hierarchical 'IonNode', turn it into a flat list for which
 -- 'ionSub' is empty for each element, and all parameters are made absolute.
+{-
 flatten :: IonNode -> [IonNode]
 flatten node = fl node []
   where fl n acc = (n { ionSub = [] }) : foldr fl acc (ionSub n)
+-}
 
 data IonException = NodeUnboundException IonNode
     deriving (Show, Typeable)

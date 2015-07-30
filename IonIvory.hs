@@ -26,7 +26,7 @@ ionModule i0 = package "ion" $ do
 
 -- | Generate Ivory procedures for the given Ion spec.
 ionProc :: Ion () -> [Def ('[] :-> ())]
-ionProc i0 = map mkProc $ flatten $ ionNode i0
+ionProc i0 = map mkProc $ ionNodes i0
   where mkProc node = proc ("ion_" ++ ionName node) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory node
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
@@ -41,13 +41,7 @@ getIvory i0 = do
   comment $ "Phase: " ++ (show $ ionPhase i0)
   case (ionAction i0) of
    Nothing -> comment "No actions"
-   Just a -> do
-     --when (ionUnbound i0) $ throw $ NodeUnboundException i0
-     when (ionUnbound i0) $ comment $ "WARNING: Unbound params"
-     a
-  let numSubs = length $ ionSub i0
-  when (numSubs > 0) $ do
-    comment $ "WARNING: Ignored " ++ show numSubs ++ " sub-nodes"
+   Just a -> a
 
 -- The main Atom function flattens everything, and this I should probably do
 -- as well.  It follows the pattern of:
