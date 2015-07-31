@@ -22,25 +22,26 @@ import           Ion
 -- | Generate an Ivory module from the given Ion spec.
 ionModule :: Ion () -> Module
 ionModule i0 = package "ion" $ do
-  let nodes = flatten $ head $ ionNodes i0
+  let nodes = flatten defaultSchedule $ head $ ionNodes i0
   mapM_ incl $ ionProc nodes
 
 -- | Generate Ivory procedures for the given Ion spec.
-ionProc :: [IonNode] -> [Def ('[] :-> ())]
-ionProc nodes = map mkProc nodes
-  where mkProc node = proc ("ion_" ++ "undefined") $ body $ do
-          noReturn $ noBreak $ noAlloc $ getIvory node
+ionProc :: [Schedule] -> [Def ('[] :-> ())]
+ionProc scheds = map mkProc scheds
+  where mkProc sch = proc ("ion_" ++ schedName sch) $ body $ do
+          noReturn $ noBreak $ noAlloc $ getIvory sch
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
 -- | Produce an Ivory effect from an 'IonNode'.
-getIvory :: (eff ~ NoEffects) => IonNode -> Ivory eff ()
+getIvory :: (eff ~ NoEffects) => Schedule -> Ivory eff ()
 -- Originally:
 -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
 getIvory i0 = do
-  comment $ "Action: " ++ (show $ ionAction i0)
-  case ionAction i0 of IvoryEff iv -> iv
-                       _           -> return ()
-  -- sequence_ $ ionAction i0
+  comment $ "Name: " ++ (show $ schedName i0)
+  comment $ "Path: " ++ (show $ schedPath i0)
+  comment $ "Phase: " ++ (show $ schedPhase i0)
+  comment $ "Period: " ++ (show $ schedPeriod i0)
+  sequence_ $ schedAction i0
 
 -- The main Atom function flattens everything, and this I should probably do
 -- as well.  It follows the pattern of:

@@ -68,18 +68,20 @@ data IonNode = IonNode { ionAction :: IonAction -- ^ What this node does
                        , ionSub :: [IonNode] -- ^ Child nodes
                        } deriving (Show)
 
+-- Note that this purposely forbids breaking, returning, and allocating.
+type IvoryAction = Ivory NoEffects ()
+
+instance Show IvoryAction where
+  show _ = "Ivory NoEffects () [no information]"
+
 -- | An action/effect that a node can have.
-data IonAction = IvoryEff (Ivory NoEffects ()) -- ^ The Ivory effects that this
-                 -- node should perform. Note that this purposely forbids
-                 -- breaking, returning, and allocating.
+data IonAction = IvoryEff IvoryAction -- ^ The Ivory effects that this
+                 -- node should perform
                | SetPhase Phase -- ^ Setting phase
                | SetPeriod Int -- ^ Setting period
                | SetName String -- ^ Setting a name
                | NoAction -- ^ Do nothing.
                deriving (Show)
-
-instance Show (Ivory NoEffects ()) where
-  show _ = "Ivory NoEffects () [no information]"
 
 data Phase = Phase PhaseContext PhaseType Int deriving (Show)
 data PhaseContext = Absolute | Relative deriving (Show)
@@ -138,11 +140,43 @@ ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
                   , ionVal = ()
                   }
 
--- | Given a hierarchical 'IonNode', turn it into a flat list for which
--- 'ionSub' is empty for each element, and all parameters are made absolute.
-flatten :: IonNode -> [IonNode]
-flatten node = fl node []
-  where fl n acc = (n { ionSub = [] }) : foldr fl acc (ionSub n)
+-- | Scheduled action, derived loosely from 'IonNode'.  Phase and period here
+-- are absolute.
+data Schedule = Schedule { schedName :: String
+                         , schedPath :: [String]
+                         , schedPhase :: Int
+                         , schedPeriod :: Int
+                         , schedAction :: [IvoryAction]
+                         }
+              deriving (Show)
+
+defaultSchedule = Schedule { schedName = "root"
+                           , schedPath = []
+                           , schedPhase = 0
+                           , schedPeriod = 1
+                           , schedAction = []
+                           }
+
+-- | Walk a hierarchical 'IonNode' and turn it into a flat list of
+-- scheduled actions, given a starting context (another 'Schedule')
+flatten :: Schedule -> IonNode -> [Schedule]
+flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
+  where ctxt' = case ionAction node of
+                 IvoryEff iv -> ctxt { schedAction = [iv] }
+                 SetPhase (Phase _ _ ph) -> ctxt { schedPhase = ph }
+                                            -- FIXME: Handle real phase.
+                 SetPeriod p -> ctxt { schedPeriod = p }
+                 SetName name -> ctxt { schedName = name
+                                      , schedPath = name : schedPath ctxt
+                                      }
+                 NoAction -> ctxt
+                 a@_ -> error ("Unknown action type: " ++ show a)
+        -- For the context that we pass forward, clear out the action; actions
+        -- run only once:
+        ctxtClean = ctxt' { schedAction = [] }
+        -- Only emit a schedule node if it has an Ivory action:
+        newSched = case ionAction node of IvoryEff _ -> [ctxt']
+                                          _          -> []
 
 data IonException = NodeUnboundException IonNode
     deriving (Show, Typeable)
