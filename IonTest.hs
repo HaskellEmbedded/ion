@@ -34,23 +34,6 @@ baz2 = phase 10 $ ion "Baz" $ do
 
 test3 = ((ivoryEff $ comment "foo") >> (ivoryEff $ comment "foo") >> (period 20 $ ivoryEff $ comment "bar") >> (period 30 $ period 25 $ ivoryEff $ comment "bar") >> (phase 10 $ ivoryEff $ comment "fooo") >> (ion "Test" $ ivoryEff $ comment "baaar"))
 
--- The problem is that (a >> b) >> c != a >> (b >> c).
--- 'do' uses the latter.
-
-testBad = (ivoryEff $ comment "foo") >> ((ivoryEff $ comment "bar") >> (period 20 $ ivoryEff $ comment "bar"))
-testGood = ((ivoryEff $ comment "foo") >> (ivoryEff $ comment "bar")) >> (period 20 $ ivoryEff $ comment "bar")
--- This works:
-testGood2 = (ivoryEff $ comment "bar") >> (period 20 $ ivoryEff $ comment "bar")
--- This is equivalent to testBad:
-testBad2 = (ivoryEff $ comment "foo") >> testGood2
-
-{-
-test = do
-  (ivoryEff $ comment "foo")
-  (ivoryEff $ comment "bar")
-  (period 20 $ ivoryEff $ comment "bar")
--}
-
 -- | Dummy spec for the sake of testing
 test :: Ion ()
 test = ion "Foo" $ do

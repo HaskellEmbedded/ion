@@ -32,6 +32,7 @@ module Ion where
 
 import           Control.Exception
 import           Control.Monad
+import           Data.Maybe ( mapMaybe )
 
 import           Ivory.Language
 import           Ivory.Language.Monad
@@ -165,7 +166,7 @@ defaultSchedule = Schedule { schedName = "root"
 flatten :: Schedule -> IonNode -> [Schedule]
 flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
   where ctxt' = case ionAction node of
-                 IvoryEff iv -> ctxt { schedAction = [iv] }
+                 IvoryEff iv -> ctxt
                  SetPhase (Phase _ _ ph) -> ctxt { schedPhase = ph }
                                             -- FIXME: Handle real phase.
                  SetPeriod p -> ctxt { schedPeriod = p }
@@ -177,9 +178,15 @@ flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
         -- For the context that we pass forward, clear out the action; actions
         -- run only once:
         ctxtClean = ctxt' { schedAction = [] }
-        -- Only emit a schedule node if it has an Ivory action:
-        newSched = case ionAction node of IvoryEff _ -> [ctxt']
-                                          _          -> []
+        -- Emit schedule nodes for any children that have Ivory effects:
+        -- (We do this to combine all effects at once that are under the same
+        -- parameters.)
+        getIvory node = case ionAction node of IvoryEff iv -> Just iv
+                                               _           -> Nothing
+        ivoryActions = mapMaybe getIvory $ ionSub node
+        newSched = if null ivoryActions
+                   then []
+                   else [ctxt' { schedAction = ivoryActions }]
 -- FIXME: When we have adjacent IvoryEff actions, combine these into a single
 -- schedAction.
 
