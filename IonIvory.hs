@@ -36,7 +36,7 @@ getIvory :: (eff ~ NoEffects) => IonNode -> Ivory eff ()
 -- Originally:
 -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
 getIvory i0 = do
-  comment $ "Node: " ++ (foldl1 (\s p -> s ++ "." ++ p) $ ionPath i0)
+  comment $ "Node: " ++ (show $ ionName i0)
   comment $ "Period: " ++ (show $ ionPeriod i0)
   comment $ "Phase: " ++ (show $ ionPhase i0)
   sequence_ $ ionAction i0
