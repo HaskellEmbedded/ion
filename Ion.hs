@@ -30,13 +30,11 @@ a way to sanitize them into C identifiers.
 
 module Ion where
 
-import           Control.Applicative
 import           Control.Exception
 import           Control.Monad
-import           Data.Functor
-import           Data.Typeable ( Typeable )
 
 import           Ivory.Language
+import           Ivory.Language.Monad
 
 -- | The monad for expressing an Ion specification.
 data Ion a = Ion { ionNodes :: [IonNode]
@@ -51,13 +49,10 @@ instance Applicative Ion where
   (<*>) = ap
 
 instance Monad Ion where
-
   ion1 >>= fn = ion2 { ionNodes = ionNodes ion2 ++ ionNodes ion1 }
-    where ion2 = fn (ionVal ion1)
+    where ion2 = fn $ ionVal ion1
 
-  return a = Ion { ionNodes = []
-                 , ionVal = a
-                 }
+  return a = Ion { ionNodes = [], ionVal = a }
 
 -- | A node representing some context in the schedule, and the actions this
 -- node includes.  'ionAction' (except for 'IvoryEff' and 'NoAction') applies
@@ -68,11 +63,15 @@ data IonNode = IonNode { ionAction :: IonAction -- ^ What this node does
                        , ionSub :: [IonNode] -- ^ Child nodes
                        } deriving (Show)
 
--- Note that this purposely forbids breaking, returning, and allocating.
+-- | The type of Ivory action that an 'IonNode' can support. Note that this
+-- purposely forbids breaking, returning, and allocating.
 type IvoryAction = Ivory NoEffects ()
 
 instance Show IvoryAction where
-  show _ = "Ivory NoEffects () [no information]"
+  show iv = "Ivory NoEffects () [" ++ show block ++ "]"
+    where (_, block) = runIvory $ noReturn $ noBreak $ noAlloc iv
+-- FIXME: Can we show anything useful about an Ivory effect?  Ivory can show
+-- ASTs.
 
 -- | An action/effect that a node can have.
 data IonAction = IvoryEff IvoryAction -- ^ The Ivory effects that this
@@ -91,24 +90,28 @@ defaultNode = IonNode { ionAction = NoAction
                       , ionSub = []
                       }
 
--- | Produce a somewhat more human-readable representation of an 'IonNode'.
-prettyPrint st =
-  let sub s = join $ map pretty $ ionSub s
-      pretty s = [ "IonNode {"
-                 , " ionAction = " ++ (show $ ionAction s)
-                 ] ++
-                 (if null $ ionSub s
-                  then []
-                  else " ionSub =" : (map ("    " ++) $ sub s)) ++
-                 ["}"]
-  in unlines $ pretty st
+-- | Produce a somewhat more human-readable representation of an 'Ion'.
+prettyPrint :: IonNode -> IO ()
+prettyPrint node = putStrLn $ unlines $ pretty node
+  where sub s = join $ map pretty $ ionSub s
+        pretty s = [ "IonNode {"
+                   , " ionAction = " ++ (show $ ionAction s)
+                   ] ++
+                   (if null $ ionSub s
+                    then []
+                    else " ionSub =" : (map ("    " ++) $ sub s)) ++
+                   ["}"]
 
+-- | Create a new node with the given one as a sub-node, using the given
+-- function to transform the node.  (FIXME: Terminology is kind of hairy. 'Ion'
+-- is not 'IonNode'.)
 makeSub :: (IonNode -> IonNode) -> Ion a -> Ion a
 makeSub fn ion0 = ion0
                   { ionNodes = [(fn defaultNode) { ionSub = ionNodes ion0 }] }
 
 -- | Create a new node with the given one as a sub-node, setting the given
--- action on this new node.
+-- action on this new node.  (FIXME: Terminology is kind of hairy. 'Ion' is
+-- not 'IonNode'.)
 makeSubFromAction :: IonAction -> Ion a -> Ion a
 makeSubFromAction act = makeSub (\i -> i { ionAction = act })
 
@@ -177,8 +180,10 @@ flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
         -- Only emit a schedule node if it has an Ivory action:
         newSched = case ionAction node of IvoryEff _ -> [ctxt']
                                           _          -> []
+-- FIXME: When we have adjacent IvoryEff actions, combine these into a single
+-- schedAction.
 
 data IonException = NodeUnboundException IonNode
-    deriving (Show, Typeable)
+    deriving (Show)
 
 instance Exception IonException
