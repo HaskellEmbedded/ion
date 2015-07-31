@@ -39,9 +39,7 @@ getIvory i0 = do
   comment $ "Node: " ++ (foldl1 (\s p -> s ++ "." ++ p) $ ionPath i0)
   comment $ "Period: " ++ (show $ ionPeriod i0)
   comment $ "Phase: " ++ (show $ ionPhase i0)
-  case (ionAction i0) of
-   Nothing -> comment "No actions"
-   Just a -> a
+  sequence_ $ ionAction i0
 
 -- The main Atom function flattens everything, and this I should probably do
 -- as well.  It follows the pattern of:

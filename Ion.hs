@@ -53,25 +53,20 @@ instance Functor Ion where
 
 instance Applicative Ion where
   pure = return
-  (<*>) = ap {-Ion { ionNode = ionNode ionA
-                       , ionAccum = ionNode ionFn :
-                                    (ionAccum ionFn ++ ionAccum ionA)
-                       , ionParent = ionParent ionA
-                       , ionVal = (ionVal ionFn) (ionVal ionA)
-                       }-}
+  (<*>) = ap
 
 instance Monad Ion where
 
-  ion1 >>= fn = Ion { ionNode = parent
-                    , ionAccum = node2' : ionAccum ion1
+  ion1 >>= fn = Ion { ionNode = parent'
+                    , ionAccum = node2 : ionAccum ion1 ++ ionAccum ion2
                     , ionParent = parent
                     , ionVal = ionVal ion2
                     }
     where ion2 = fn (ionVal ion1)
           node1 = ionNode ion1
           node2 = (ionNode ion2)
-          node2' = node2 { ionAction = ionAction node1 ++ ionAction node2 }
-          parent = ionParent ion1
+          parent = (ionParent ion1)
+          parent' = parent { ionAction = ionAction node1 ++ ionAction node2 }
 
   return a = Ion { ionNode = defaultNode
                  , ionAccum = []
@@ -141,18 +136,20 @@ phase i ion_ = ion_ { ionNode = node { ionPhase = Phase Relative Min i }
                     }
   where node = ionNode ion_
 -- FIXME: This needs to comprehend the different phase types.
+-- FIXME: phases override each other in the wrong way. Inner should override
+-- outer, not vice versa.
 
 -- | Specify a period for a sub-node. (The sub-node may readily override this
 -- period.)
 period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period i ion_ = ion_ { ionNode = node'
+period i ion_ = ion_ { ionNode = node { ionPeriod = i }
                      , ionParent = node
                      }
   where node = ionNode ion_
-        node' = node { ionPeriod = i
-                     }
+-- FIXME: periods override each other in the wrong way. Inner should override
+-- outer, not vice versa.
 
 -- | Add an Ivory action to this node. (I should probably give this a better
 -- name at some point, and maybe move it into IonIvory.)
@@ -163,9 +160,9 @@ ivoryEff iv = Ion { ionNode = defaultNode { ionAction = [iv] }
                   , ionParent = defaultNode
                   }
 
+{-
 -- | Given a hierarchical 'IonNode', turn it into a flat list for which
 -- 'ionSub' is empty for each element, and all parameters are made absolute.
-{-
 flatten :: IonNode -> [IonNode]
 flatten node = fl node []
   where fl n acc = (n { ionSub = [] }) : foldr fl acc (ionSub n)
