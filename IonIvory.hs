@@ -22,12 +22,13 @@ import           Ion
 -- | Generate an Ivory module from the given Ion spec.
 ionModule :: Ion () -> Module
 ionModule i0 = package "ion" $ do
-  mapM_ incl $ ionProc i0
+  let nodes = flatten $ head $ ionNodes i0
+  mapM_ incl $ ionProc nodes
 
 -- | Generate Ivory procedures for the given Ion spec.
-ionProc :: Ion () -> [Def ('[] :-> ())]
-ionProc i0 = map mkProc $ ionNodes i0
-  where mkProc node = proc ("ion_" ++ ionName node) $ body $ do
+ionProc :: [IonNode] -> [Def ('[] :-> ())]
+ionProc nodes = map mkProc nodes
+  where mkProc node = proc ("ion_" ++ "undefined") $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory node
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
@@ -36,10 +37,10 @@ getIvory :: (eff ~ NoEffects) => IonNode -> Ivory eff ()
 -- Originally:
 -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
 getIvory i0 = do
-  comment $ "Node: " ++ (show $ ionName i0)
-  comment $ "Period: " ++ (show $ ionPeriod i0)
-  comment $ "Phase: " ++ (show $ ionPhase i0)
-  sequence_ $ ionAction i0
+  comment $ "Action: " ++ (show $ ionAction i0)
+  case ionAction i0 of IvoryEff iv -> iv
+                       _           -> return ()
+  -- sequence_ $ ionAction i0
 
 -- The main Atom function flattens everything, and this I should probably do
 -- as well.  It follows the pattern of:

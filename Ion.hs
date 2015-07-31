@@ -52,8 +52,7 @@ instance Applicative Ion where
 
 instance Monad Ion where
 
-  ion1 >>= fn = ion2 { ionNodes = ionNodes ion2 ++ ionNodes ion1
-                     }
+  ion1 >>= fn = ion2 { ionNodes = ionNodes ion2 ++ ionNodes ion1 }
     where ion2 = fn (ionVal ion1)
 
   return a = Ion { ionNodes = []
@@ -61,19 +60,23 @@ instance Monad Ion where
                  }
 
 -- | A node representing some context in the schedule, and the actions this
--- node includes.
-data IonNode =
-  IonNode
-  { ionName :: String -- ^ Name of this node
-  --, ionPath :: [String] -- ^ The path to this node (as a list of names,
-  --  -- top-level first)
-  , ionPeriod :: Int -- ^ The current period of the base rate
-  , ionPhase :: Phase -- ^ The current phase within that period
-  , ionAction :: [Ivory NoEffects ()] -- ^ The Ivory effects that this node
-    -- should perform. Note that this purposely forbids breaking, returning,
-    -- and allocating.
-  , ionSub :: [IonNode]
-  } deriving (Show)
+-- node includes.  'ionAction' (except for 'IvoryEff' and 'NoAction') applies
+-- not just to the current node, but to any child nodes too.  In general,
+-- if two actions conflict (e.g. two 'SetPhase' actions with absolute phase),
+-- then the innermost one overrides the other.
+data IonNode = IonNode { ionAction :: IonAction -- ^ What this node does
+                       , ionSub :: [IonNode] -- ^ Child nodes
+                       } deriving (Show)
+
+-- | An action/effect that a node can have.
+data IonAction = IvoryEff (Ivory NoEffects ()) -- ^ The Ivory effects that this
+                 -- node should perform. Note that this purposely forbids
+                 -- breaking, returning, and allocating.
+               | SetPhase Phase -- ^ Setting phase
+               | SetPeriod Int -- ^ Setting period
+               | SetName String -- ^ Setting a name
+               | NoAction -- ^ Do nothing.
+               deriving (Show)
 
 instance Show (Ivory NoEffects ()) where
   show _ = "Ivory NoEffects () [no information]"
@@ -82,11 +85,7 @@ data Phase = Phase PhaseContext PhaseType Int deriving (Show)
 data PhaseContext = Absolute | Relative deriving (Show)
 data PhaseType = Min | Exact deriving (Show)
 
-defaultNode = IonNode { ionPeriod = 1
-                      , ionName = "root"
-                      , ionPhase = Phase Absolute Min 0
-                      --, ionPath = [ionName defaultNode]
-                      , ionAction = []
+defaultNode = IonNode { ionAction = NoAction
                       , ionSub = []
                       }
 
@@ -94,10 +93,6 @@ defaultNode = IonNode { ionPeriod = 1
 prettyPrint st =
   let sub s = join $ map pretty $ ionSub s
       pretty s = [ "IonNode {"
-                 , " ionName = " ++ (show $ ionName s)
-                 --, " ionPath = " ++ (show $ ionPath s)
-                 , " ionPeriod = " ++ (show $ ionPeriod s)
-                 , " ionPhase = " ++ (show $ ionPhase s)
                  , " ionAction = " ++ (show $ ionAction s)
                  ] ++
                  (if null $ ionSub s
@@ -106,56 +101,48 @@ prettyPrint st =
                  ["}"]
   in unlines $ pretty st
 
+makeSub :: (IonNode -> IonNode) -> Ion a -> Ion a
+makeSub fn ion0 = ion0
+                  { ionNodes = [(fn defaultNode) { ionSub = ionNodes ion0 }] }
+
+-- | Create a new node with the given one as a sub-node, setting the given
+-- action on this new node.
+makeSubFromAction :: IonAction -> Ion a -> Ion a
+makeSubFromAction act = makeSub (\i -> i { ionAction = act })
+
 -- | Create a new named sub-node.
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
-ion name ion_ = ion_ { ionNodes = [node] }
-  where node = defaultNode { ionName = name
-                           , ionSub = ionNodes ion_
-                           }
+ion = makeSubFromAction . SetName
 
 -- | Specify a phase for a sub-node. (The sub-node may readily override this
 -- phase.)
 phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase i ion_ = ion_ { ionNodes = [node] }
-  where node = defaultNode { ionPhase = Phase Relative Min i
-                           , ionName = "_phase" ++ (show i)
-                           , ionSub = ionNodes ion_
-                           }
+phase = makeSubFromAction . SetPhase . Phase Relative Min
 -- FIXME: This needs to comprehend the different phase types.
--- FIXME: phases override each other in the wrong way. Inner should override
--- outer, not vice versa.
 
 -- | Specify a period for a sub-node. (The sub-node may readily override this
 -- period.)
 period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period i ion_ = ion_ { ionNodes = [node] }
-  where node = defaultNode { ionPeriod = i
-                           , ionName = "_period" ++ (show i)
-                           , ionSub = ionNodes ion_
-                           }
--- FIXME: periods override each other in the wrong way. Inner should override
--- outer, not vice versa.
+period = makeSubFromAction . SetPeriod
 
 -- | Add an Ivory action to this node. (I should probably give this a better
 -- name at some point, and maybe move it into IonIvory.)
 ivoryEff :: Ivory NoEffects () -> Ion ()
-ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = [iv] }]
+ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
                   , ionVal = ()
                   }
 
-{-
 -- | Given a hierarchical 'IonNode', turn it into a flat list for which
 -- 'ionSub' is empty for each element, and all parameters are made absolute.
 flatten :: IonNode -> [IonNode]
 flatten node = fl node []
   where fl n acc = (n { ionSub = [] }) : foldr fl acc (ionSub n)
--}
 
 data IonException = NodeUnboundException IonNode
     deriving (Show, Typeable)
