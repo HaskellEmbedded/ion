@@ -12,16 +12,13 @@ Atom does), interfaces with another very powerful, more general EDSL,
 To-do items:
 
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
+(This is partially done in 'flatten'.)
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
-   * The counterpart to 'cond' in Atom should compose as 'phase' and 'period'
-do.
+   * Counterpart to 'cond' in Atom should compose as 'phase' and 'period' do.
    * A combinator to explicitly disable a rule (also composing like 'cond')
 might be nice too.
-   * Figure out how to get Ivory effects into here (and what type of effects
-they should be).
-   * Use Control.Exception for errors.
    * I need to either mandate that Ion names must be C identifiers, or make
 a way to sanitize them into C identifiers.
 
@@ -34,8 +31,8 @@ import           Control.Exception
 import           Control.Monad
 import           Data.Maybe ( mapMaybe )
 
-import           Ivory.Language
-import           Ivory.Language.Monad
+import qualified Ivory.Language as IL
+import qualified Ivory.Language.Monad as ILM
 
 -- | The monad for expressing an Ion specification.
 data Ion a = Ion { ionNodes :: [IonNode]
@@ -66,11 +63,11 @@ data IonNode = IonNode { ionAction :: IonAction -- ^ What this node does
 
 -- | The type of Ivory action that an 'IonNode' can support. Note that this
 -- purposely forbids breaking, returning, and allocating.
-type IvoryAction = Ivory NoEffects ()
+type IvoryAction = IL.Ivory IL.NoEffects ()
 
 instance Show IvoryAction where
   show iv = "Ivory NoEffects () [" ++ show block ++ "]"
-    where (_, block) = runIvory $ noReturn $ noBreak $ noAlloc iv
+    where (_, block) = ILM.runIvory $ ILM.noReturn $ ILM.noBreak $ ILM.noAlloc iv
 -- FIXME: Can we show anything useful about an Ivory effect?  Ivory can show
 -- ASTs.
 
@@ -139,7 +136,7 @@ period = makeSubFromAction . SetPeriod
 
 -- | Add an Ivory action to this node. (I should probably give this a better
 -- name at some point, and maybe move it into IonIvory.)
-ivoryEff :: Ivory NoEffects () -> Ion ()
+ivoryEff :: IL.Ivory IL.NoEffects () -> Ion ()
 ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
                   , ionVal = ()
                   }

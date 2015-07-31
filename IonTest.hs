@@ -43,6 +43,7 @@ test = ion "Foo" $ do
     ivoryEff $ comment "period 20b"
     ivoryEff $ comment "period 20c"
     ivoryEff $ comment "period 20d"
+    period 30 $ ivoryEff $ comment "period 30 overwriting 20"
   
   -- Period 1:
   ion "Bar" $ do
