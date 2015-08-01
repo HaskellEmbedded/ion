@@ -8,6 +8,7 @@ This contains functionality for converting the 'Ion' type to Ivory constructs.
 -}
 
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 module IonIvory where
@@ -26,16 +27,25 @@ ionModule i0 = package "ion" $ do
 
 -- | Generate Ivory procedures for the given Ion spec.
 ionProc :: [Schedule] -> [Def ('[] :-> ())]
-ionProc scheds = entryProc : schedProcs
-  where schedProcs = map mkProc scheds
-        mkProc sch = proc ("ion_" ++ schedName sch) $ body $ do
+ionProc scheds = entryProc : schedFns
+  where schedFns = map mkSchedFn scheds
+        mkSchedFn sch = proc ("ion_" ++ schedName sch) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory sch
+        -- impl = list of (schedule function, Ivory effect)
         entryProc = proc "start_ion_" $ body $ do
-          mapM_ call_ schedProcs
+          mapM_ (\(sch, schFn) -> do
+                    let start = fromIntegral $ schedPhase sch
+                    counter <- local $ ival (start :: Uint16)
+                    -- FIXME: Assign correct type to counter
+                    -- FIXME: counter needs to be a MemArea, not a local!
+                    val <- deref counter
+                    ifte_ (val ==? 0)
+                      (call_ schFn)
+                      (store counter (val - 1))) $ zip scheds schedFns
           -- TODO: Disambiguate the name of this procedure
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
--- | Produce an Ivory effect from an 'IonNode'.
+-- | Produce an Ivory effect from a 'Schedule'.
 getIvory :: (eff ~ NoEffects) => Schedule -> Ivory eff ()
 -- Originally:
 -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
