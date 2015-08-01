@@ -37,8 +37,8 @@ getIvory :: (eff ~ NoEffects) => Schedule -> Ivory eff ()
 -- Originally:
 -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
 getIvory i0 = do
-  comment $ "Name: " ++ (show $ schedName i0)
-  comment $ "Path: " ++ (show $ schedPath i0)
+  comment $ "Name: " ++ schedName i0
+  comment $ "Path: " ++ (foldl1 (\s acc -> (s ++ "." ++ acc)) $ schedPath i0)
   comment $ "Phase: " ++ (show $ schedPhase i0)
   comment $ "Period: " ++ (show $ schedPeriod i0)
   sequence_ $ schedAction i0

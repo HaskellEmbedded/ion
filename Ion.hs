@@ -168,7 +168,7 @@ flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
                                             -- FIXME: Handle real phase.
                  SetPeriod p -> ctxt { schedPeriod = p }
                  SetName name -> ctxt { schedName = name
-                                      , schedPath = name : schedPath ctxt
+                                      , schedPath = schedPath ctxt ++ [name]
                                       }
                  NoAction -> ctxt
                  a@_ -> error ("Unknown action type: " ++ show a)
@@ -182,10 +182,12 @@ flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
                                                _           -> Nothing
         ivoryActions = mapMaybe getIvory $ ionSub node
         newSched = if null ivoryActions
-                   then []
-                   else [ctxt' { schedAction = ivoryActions }]
--- FIXME: When we have adjacent IvoryEff actions, combine these into a single
--- schedAction.
+                   then [] -- If no actions, don't even emit a schedule item.
+                   else [ctxt' {schedAction = ivoryActions, schedName = name}]
+        -- Disambiguate the name
+        name = schedName ctxt' ++ "_" ++ (show $ schedPhase ctxt') ++ "_" ++
+               (show $ schedPeriod ctxt')
+-- FIXME: Check for duplicate names?
 
 data IonException = NodeUnboundException IonNode
     deriving (Show)
