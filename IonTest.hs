@@ -24,15 +24,13 @@ main = do
     $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
 
 baz :: Ion ()
-baz = ion "Baz" $ phase 10 $ do
-  ivoryEff $ comment "probably erased"
-  phase 20 $ ivoryEff $ comment "probably overridden"
+baz = ion "extBaz1" $ phase 10 $ do
+  ivoryEff $ comment "should be phase 10"
+  phase 20 $ ivoryEff $ comment "should be phase 20"
 
 baz2 :: Ion ()
-baz2 = phase 10 $ ion "Baz" $ do
-  ivoryEff $ comment "probably not erased"
-
-test3 = ((ivoryEff $ comment "foo") >> (ivoryEff $ comment "foo") >> (period 20 $ ivoryEff $ comment "bar") >> (period 30 $ period 25 $ ivoryEff $ comment "bar") >> (phase 10 $ ivoryEff $ comment "fooo") >> (ion "Test" $ ivoryEff $ comment "baaar"))
+baz2 = phase 10 $ ion "extBaz2" $ do
+  ivoryEff $ comment "should be phase 10"
 
 -- | Dummy spec for the sake of testing
 test :: Ion ()
@@ -54,26 +52,5 @@ test = ion "Foo" $ do
     ivoryEff $ comment "Foo.Baz period 15"
     ivoryEff $ comment "Foo.Baz period 15b"
 
-  --period 20 $ do
-    --ivoryEff $ comment "period 20"
-
-  {-
-  -- Period 1:
-  ion "outside2" $ do
-    ivoryEff $ do
-      comment "also outside"
-
-  -- This should NOT be an error:
+  baz
   baz2
-
-  period 10 $ phase 5 $ ion "Quux" $ do
-    ivoryEff $ comment "quux"
-
-  period 20 $ phase 4 $ ion "Bar" $ do
-    ivoryEff $ comment "foo"
-    ivoryEff $ comment "bar"
-    phase 6 $ ion "phase 6" $ do
-      ivoryEff $ comment "phase 6 comment"
-  -}
-
--- test_ = execState test defaultNode
