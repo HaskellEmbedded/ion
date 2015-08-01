@@ -13,7 +13,6 @@ This contains functionality for converting the 'Ion' type to Ivory constructs.
 module IonIvory where
 
 import           Control.Exception
-import           Control.Monad.State.Lazy
 
 import           Ivory.Language
 
@@ -27,9 +26,13 @@ ionModule i0 = package "ion" $ do
 
 -- | Generate Ivory procedures for the given Ion spec.
 ionProc :: [Schedule] -> [Def ('[] :-> ())]
-ionProc scheds = map mkProc scheds
-  where mkProc sch = proc ("ion_" ++ schedName sch) $ body $ do
+ionProc scheds = entryProc : schedProcs
+  where schedProcs = map mkProc scheds
+        mkProc sch = proc ("ion_" ++ schedName sch) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory sch
+        entryProc = proc "start_ion_" $ body $ do
+          mapM_ call_ schedProcs
+          -- TODO: Disambiguate the name of this procedure
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
 -- | Produce an Ivory effect from an 'IonNode'.
@@ -42,14 +45,3 @@ getIvory i0 = do
   comment $ "Phase: " ++ (show $ schedPhase i0)
   comment $ "Period: " ++ (show $ schedPeriod i0)
   sequence_ $ schedAction i0
-
--- The main Atom function flattens everything, and this I should probably do
--- as well.  It follows the pattern of:
--- {
---    if (...) {
---       call out...
---    } else {
---       increment clock
--- }
-
--- I am generating functions, but I am not yet calling them.
