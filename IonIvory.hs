@@ -25,25 +25,23 @@ import qualified Ivory.Language.Syntax.Type as Ty
 import           Ion
 import           IonUtil
 
--- | Generate an Ivory module from the given Ion spec.
-ionModule :: Ion () -> Module
-ionModule i0 = package "ion" $ do
-  let nodes = flatten defaultSchedule $ head $ ionNodes i0
-  sequence_ $ ionProc nodes
-
--- | Generate Ivory procedures for the given Ion spec.
--- FIXME: This needs to expose the entry procedure or Ivory can't call it
-ionProc :: [Schedule] -> [ModuleDef]
-ionProc scheds = incl entryProc :
-                 (map incl schedFns) ++
-                 (map counterDef scheds)
-  where -- The entry procedure for running the schedule:
+-- | Generate an Ivory schedule procedure and needed 'ModuleDef' from the given
+-- Ion spec.
+ionDef :: Ion () -> (Def ('[] ':-> ()), ModuleDef)
+ionDef i0 = (entryProc, mod)
+  where mod = do incl entryProc
+                 mapM_ incl schedFns
+                 mapM_ counterDef nodes
+        nodes = flatten defaultSchedule $ head $ ionNodes i0
+        -- FIXME: This shouldn't just be taking the head node, and we should
+        -- probably also not hard-code defaultSchedule.
+        -- The entry procedure for running the schedule:
         entryProc :: Def ('[] ':-> ())
         entryProc = proc "start_ion_" $ body $ do
-          mapM_ entryEff $ zip scheds schedFns
+          mapM_ entryEff $ zip nodes schedFns
           -- FIXME: Disambiguate the name of this procedure
         schedFns :: [Def ('[] ':-> ())]
-        schedFns = map mkSchedFn scheds
+        schedFns = map mkSchedFn nodes
         -- The name of the counter symbol:
         counterSym sch = "counter_" ++ schedName sch
         -- The ModuleDef of the counter's MemArea:
