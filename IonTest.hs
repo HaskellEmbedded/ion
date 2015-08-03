@@ -19,7 +19,7 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      (entry, ionDef') = ionDef test
+      (entry, ionDef') = ionDef "test_ion" test
       ionModule = package "ion" $ ionDef'
   catch
     (runCompiler [ionModule] [] ivoryOpts)

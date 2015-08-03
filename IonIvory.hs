@@ -27,8 +27,11 @@ import           IonUtil
 
 -- | Generate an Ivory schedule procedure and needed 'ModuleDef' from the given
 -- Ion spec.
-ionDef :: Ion () -> (Def ('[] ':-> ()), ModuleDef)
-ionDef i0 = (entryProc, mod)
+ionDef :: String -- ^ Name for schedule function
+          -> Ion () -- ^ Ion specification
+          -> (Def ('[] ':-> ()), ModuleDef) -- ^ (schedule entry procedure,
+          -- module definitions)
+ionDef name i0 = (entryProc, mod)
   where mod = do incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes
@@ -37,8 +40,12 @@ ionDef i0 = (entryProc, mod)
         -- probably also not hard-code defaultSchedule.
         -- The entry procedure for running the schedule:
         entryProc :: Def ('[] ':-> ())
-        entryProc = proc "start_ion_" $ body $ do
-          mapM_ entryEff $ zip nodes schedFns
+        entryProc = proc name $ body $ do
+          let nodeComment (sch, _) =
+                comment $ "Path: " ++ (foldl1 (\s acc -> (s ++ "." ++ acc)) $
+                                       schedPath sch)
+          comment "Auto-generated schedule entry procedure from Ion & Ivory"
+          mapM_ (\t -> nodeComment t >> entryEff t) $ zip nodes schedFns
           -- FIXME: Disambiguate the name of this procedure
         schedFns :: [Def ('[] ':-> ())]
         schedFns = map mkSchedFn nodes
@@ -87,7 +94,7 @@ getIvory :: (eff ~ NoEffects) => Schedule -> Ivory eff ()
 -- Originally:
 -- (GetBreaks eff ~ NoBreak, GetReturn eff ~ NoReturn, GetAlloc eff ~ NoAlloc)
 getIvory i0 = do
-  comment $ "Name: " ++ schedName i0
+  comment "Auto-generated schedule procedure from Ion & Ivory"
   comment $ "Path: " ++ (foldl1 (\s acc -> (s ++ "." ++ acc)) $ schedPath i0)
   comment $ "Phase: " ++ (show $ schedPhase i0)
   comment $ "Period: " ++ (show $ schedPeriod i0)
