@@ -17,10 +17,15 @@ To-do items:
 period which is relative not to the base rate, but to the last rate that was
 inherited.
    * Counterpart to 'cond' in Atom should compose as 'phase' and 'period' do.
+(Is this necessary when I can just use the Ivory conditional?)
    * A combinator to explicitly disable a rule (also composing like 'cond')
 might be nice too.
    * I need to either mandate that Ion names must be C identifiers, or make
 a way to sanitize them into C identifiers.
+   * Atom treats everything within a node as happening at the same time, and I
+do not handle this yet, though I rather should.  This may be complicated - I
+may either need to process the Ivory effect to look at variable references, or
+perhaps add certain features to the monad.
 
 -}
 {-# LANGUAGE FlexibleInstances #-}
@@ -35,7 +40,8 @@ import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
 
 -- | The monad for expressing an Ion specification.
-data Ion a = Ion { ionNodes :: [IonNode]
+data Ion a = Ion { ionNodes :: [IonNode] -- ^ An accumulation of nodes; the
+                   -- head is considered the 'current' node
                  , ionVal :: a
                  } deriving (Show)
 
@@ -68,8 +74,6 @@ type IvoryAction = IL.Ivory IL.NoEffects ()
 instance Show IvoryAction where
   show iv = "Ivory NoEffects () [" ++ show block ++ "]"
     where (_, block) = ILM.runIvory $ ILM.noReturn $ ILM.noBreak $ ILM.noAlloc iv
--- FIXME: Can we show anything useful about an Ivory effect?  Ivory can show
--- ASTs.
 
 -- | An action/effect that a node can have.
 data IonAction = IvoryEff IvoryAction -- ^ The Ivory effects that this
@@ -77,18 +81,27 @@ data IonAction = IvoryEff IvoryAction -- ^ The Ivory effects that this
                | SetPhase Phase -- ^ Setting phase
                | SetPeriod Int -- ^ Setting period
                | SetName String -- ^ Setting a name
-               | NoAction -- ^ Do nothing.
+               | NoAction -- ^ Do nothing
                deriving (Show)
 
+-- | A phase - i.e. the count within a period (thus, an absolute phase must
+-- range from @0@ up to @N-1@ for period @N@).
 data Phase = Phase PhaseContext PhaseType Int deriving (Show)
-data PhaseContext = Absolute | Relative deriving (Show)
-data PhaseType = Min | Exact deriving (Show)
+
+data PhaseContext = Absolute -- ^ Phase is relative to the first tick within a
+                    -- period
+                  | Relative -- ^ Phase is relative to the last phase used
+                  deriving (Show)
+
+data PhaseType = Min -- ^ Minimum phase (i.e. at this phase, or any later point)
+               | Exact -- ^ Exactly this phase
+               deriving (Show)
 
 defaultNode = IonNode { ionAction = NoAction
                       , ionSub = []
                       }
 
--- | Produce a somewhat more human-readable representation of an 'Ion'.
+-- | Produce a somewhat more human-readable representation of an 'Ion'
 prettyPrint :: IonNode -> IO ()
 prettyPrint node = putStrLn $ unlines $ pretty node
   where sub s = join $ map pretty $ ionSub s
@@ -100,49 +113,46 @@ prettyPrint node = putStrLn $ unlines $ pretty node
                     else " ionSub =" : (map ("    " ++) $ sub s)) ++
                    ["}"]
 
--- | Create a new node with the given one as a sub-node, using the given
--- function to transform the node.  (FIXME: Terminology is kind of hairy. 'Ion'
--- is not 'IonNode'.)
+-- | Given a function which transforms an 'IonNode', and a child 'Ion', return
+-- the parent 'Ion' containing this node with that transformation applied.
 makeSub :: (IonNode -> IonNode) -> Ion a -> Ion a
 makeSub fn ion0 = ion0
                   { ionNodes = [(fn defaultNode) { ionSub = ionNodes ion0 }] }
 
--- | Create a new node with the given one as a sub-node, setting the given
--- action on this new node.  (FIXME: Terminology is kind of hairy. 'Ion' is
--- not 'IonNode'.)
+-- | Given an 'IonAction' to apply, and a child 'Ion', return the parent 'Ion'
+-- containing this node with that action.
 makeSubFromAction :: IonAction -> Ion a -> Ion a
 makeSubFromAction act = makeSub (\i -> i { ionAction = act })
 
--- | Create a new named sub-node.
+-- | Specify a name of a sub-node, returning the parent.
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
 ion = makeSubFromAction . SetName
 
--- | Specify a phase for a sub-node. (The sub-node may readily override this
--- phase.)
+-- | Specify a phase for a sub-node, returning the parent. (The sub-node may
+-- readily override this phase.)
 phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
 phase = makeSubFromAction . SetPhase . Phase Relative Min
 -- FIXME: This needs to comprehend the different phase types.
 
--- | Specify a period for a sub-node. (The sub-node may readily override this
--- period.)
+-- | Specify a period for a sub-node, returning the parent. (The sub-node may
+-- readily override this period.)
 period :: Int -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
 period = makeSubFromAction . SetPeriod
 
--- | Add an Ivory action to this node. (I should probably give this a better
--- name at some point, and maybe move it into IonIvory.)
-ivoryEff :: IL.Ivory IL.NoEffects () -> Ion ()
+-- | Turn an Ivory effect into an 'Ion'.
+ivoryEff :: IvoryAction -> Ion ()
 ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
                   , ionVal = ()
                   }
 
--- | Scheduled action, derived loosely from 'IonNode'.  Phase and period here
--- are absolute.
+-- | A scheduled action.  Phase and period here are absolute, and there are no
+-- child nodes.
 data Schedule = Schedule { schedName :: String
                          , schedPath :: [String]
                          , schedPhase :: Integer
@@ -160,7 +170,9 @@ defaultSchedule = Schedule { schedName = "root"
 
 -- | Walk a hierarchical 'IonNode' and turn it into a flat list of
 -- scheduled actions, given a starting context (another 'Schedule')
-flatten :: Schedule -> IonNode -> [Schedule]
+flatten :: Schedule -- ^ Starting schedule (e.g. 'defaultSchedule')
+           -> IonNode -- ^ Starting node
+           -> [Schedule]
 flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
   where ctxt' = case ionAction node of
                  IvoryEff iv -> ctxt
