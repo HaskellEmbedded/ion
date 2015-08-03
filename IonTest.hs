@@ -48,7 +48,7 @@ test = ion "Foo" $ do
     ivoryEff $ comment "Foo.Bar"
     ivoryEff $ comment "Foo.Bar 2"
 
-  ion "Baz" $ period 15 $ do
+  ion "Baz" $ period 1500 $ do
     ivoryEff $ comment "Foo.Baz period 15"
     ivoryEff $ comment "Foo.Baz period 15b"
 

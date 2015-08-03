@@ -145,8 +145,8 @@ ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
 -- are absolute.
 data Schedule = Schedule { schedName :: String
                          , schedPath :: [String]
-                         , schedPhase :: Int
-                         , schedPeriod :: Int
+                         , schedPhase :: Integer
+                         , schedPeriod :: Integer
                          , schedAction :: [IvoryAction]
                          }
               deriving (Show)
@@ -164,9 +164,10 @@ flatten :: Schedule -> IonNode -> [Schedule]
 flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
   where ctxt' = case ionAction node of
                  IvoryEff iv -> ctxt
-                 SetPhase (Phase _ _ ph) -> ctxt { schedPhase = ph }
-                                            -- FIXME: Handle real phase.
-                 SetPeriod p -> ctxt { schedPeriod = p }
+                 SetPhase (Phase _ _ ph) ->
+                   ctxt { schedPhase = fromIntegral ph }
+                   -- FIXME: Handle real phase.
+                 SetPeriod p -> ctxt { schedPeriod = fromIntegral p }
                  SetName name -> ctxt { schedName = name
                                       , schedPath = schedPath ctxt ++ [name]
                                       }

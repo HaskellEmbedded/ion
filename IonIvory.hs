@@ -34,27 +34,46 @@ ionModule i0 = package "ion" $ do
 -- | Generate Ivory procedures for the given Ion spec.
 -- FIXME: This needs to expose the entry procedure or Ivory can't call it
 ionProc :: [Schedule] -> [ModuleDef]
-ionProc scheds = (map incl $ entryProc : schedFns) ++
-                 (map (defMemArea . counter) scheds)
-  where schedFns :: [Def ('[] ':-> ())]
+ionProc scheds = incl entryProc :
+                 (map incl schedFns) ++
+                 (map counterDef scheds)
+  where -- The entry procedure for running the schedule:
+        entryProc :: Def ('[] ':-> ())
+        entryProc = proc "start_ion_" $ body $ do
+          mapM_ entryEff $ zip scheds schedFns
+          -- TODO: Disambiguate the name of this procedure
+        schedFns :: [Def ('[] ':-> ())]
         schedFns = map mkSchedFn scheds
-        counter sch = area name $ Just $ ival (start :: Uint32)
-          where start = fromIntegral $ schedPhase sch
-                name = "counter_" ++ schedName sch
+        -- The name of the counter symbol:
+        counterSym sch = "counter_" ++ schedName sch
+        -- The ModuleDef of the counter's MemArea:
+        counterDef sch =
+          let areaDef :: forall a .
+                         (IvoryType a, IvoryInit a, IvoryZeroVal a, Num a) =>
+                         Proxy a -> ModuleDef
+              areaDef _ = defMemArea $ area (counterSym sch) $ Just $ ival $
+                          ((fromIntegral $ schedPhase sch) :: a)
+          in case (fitWordType $ schedPeriod sch) of
+            (Ty.TyWord Ty.Word8)  -> areaDef (Proxy :: Proxy Uint8)
+            (Ty.TyWord Ty.Word16) -> areaDef (Proxy :: Proxy Uint16)
+            (Ty.TyWord Ty.Word32) -> areaDef (Proxy :: Proxy Uint32)
+            (Ty.TyWord Ty.Word64) -> areaDef (Proxy :: Proxy Uint64)
+            -- FIXME: Is there a cleaner way to do the above?
+        -- The Ivory procedure for some schedule item:
         mkSchedFn sch = proc ("ion_" ++ schedName sch) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory sch
+        -- The Ivory effect for invoking a given schedule item:
         entryEff (sch, schFn) = emit $
                                 AST.IfTE counterZero [callSched, reset] [decr]
-          where -- FIXME: Assign correct type to counter
-                ty = Ty.TyWord Ty.Word32
+          where ty = fitWordType $ schedPeriod sch
                 -- Counter variable:
-                var = AST.ExpSym $ memSym $ counter sch
+                var = AST.ExpSym $ counterSym sch
                 -- Pointer to it (because AST.Store assumes a reference):
-                var' = AST.ExpAddrOfGlobal $ memSym $ counter sch
+                var' = AST.ExpAddrOfGlobal $ counterSym sch
                 -- Predicate, true if counter equals zero:
                 counterZero = AST.ExpOp (AST.ExpEq ty)
                               [var, AST.ExpLit $ AST.LitInteger 0]
-                -- True case:
+                -- True case (counter = 0):
                 callSched = AST.Call Ty.TyVoid Nothing
                             (AST.NameSym $ procName schFn) []
                 reset = AST.Store ty var' $ AST.ExpLit $
@@ -63,9 +82,6 @@ ionProc scheds = (map incl $ entryProc : schedFns) ++
                 decr = AST.Store ty var' $
                        (AST.ExpOp AST.ExpSub
                         [var, AST.ExpLit $ AST.LitInteger 1])
-        entryProc = proc "start_ion_" $ body $ do
-          mapM_ entryEff $ zip scheds schedFns
-          -- TODO: Disambiguate the name of this procedure
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
 -- | Produce an Ivory effect from a 'Schedule'.
