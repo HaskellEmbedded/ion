@@ -41,7 +41,7 @@ ionProc scheds = incl entryProc :
         entryProc :: Def ('[] ':-> ())
         entryProc = proc "start_ion_" $ body $ do
           mapM_ entryEff $ zip scheds schedFns
-          -- TODO: Disambiguate the name of this procedure
+          -- FIXME: Disambiguate the name of this procedure
         schedFns :: [Def ('[] ':-> ())]
         schedFns = map mkSchedFn scheds
         -- The name of the counter symbol:
