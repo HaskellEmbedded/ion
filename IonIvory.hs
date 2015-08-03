@@ -32,6 +32,7 @@ ionModule i0 = package "ion" $ do
   sequence_ $ ionProc nodes
 
 -- | Generate Ivory procedures for the given Ion spec.
+-- FIXME: This needs to expose the entry procedure or Ivory can't call it
 ionProc :: [Schedule] -> [ModuleDef]
 ionProc scheds = (map incl $ entryProc : schedFns) ++
                  (map (defMemArea . counter) scheds)
@@ -42,27 +43,29 @@ ionProc scheds = (map incl $ entryProc : schedFns) ++
                 name = "counter_" ++ schedName sch
         mkSchedFn sch = proc ("ion_" ++ schedName sch) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory sch
-        -- impl = list of (schedule function, Ivory effect)
+        entryEff (sch, schFn) =
+          let start = fromIntegral $ (schedPeriod sch - 1)
+                      -- FIXME: Assign correct type to counter
+              ty = Ty.TyWord Ty.Word16
+              -- Counter variable:
+              var = AST.ExpSym $ memSym $ counter sch
+              -- Predicate, true if counter equals zero:
+              counterZero = AST.ExpOp (AST.ExpEq ty)
+                            [var, AST.ExpLit $ AST.LitInteger 0]
+              -- True case:
+              callSched = AST.Call Ty.TyVoid Nothing
+                          (AST.NameSym $ procName schFn) []
+              resetCount = AST.Store ty var $ AST.ExpLit $ AST.LitInteger start
+              -- False case:
+              decrCount = AST.Store ty var $
+                          (AST.ExpOp AST.ExpSub
+                           [var, AST.ExpLit $ AST.LitInteger 1])
+              -- FIXME: Both true and false case have a problem, which is that
+              -- AST.Store is storing to a reference, and 'var' is not a
+              -- pointer.
+          in emit $ AST.IfTE counterZero [callSched, resetCount] [decrCount]
         entryProc = proc "start_ion_" $ body $ do
-          mapM_ (\(sch, schFn) -> do
-                     let start = fromIntegral $ (schedPeriod sch - 1)
-                         ty = Ty.TyWord Ty.Word16
-                         var = AST.ExpSym $ memSym $ counter sch
-                     emit $
-                       AST.IfTE
-                       (AST.ExpOp (AST.ExpEq ty)
-                        [var, AST.ExpLit $ AST.LitInteger 0])
-                       [ AST.Call Ty.TyVoid Nothing
-                         (AST.NameSym $ procName schFn) []
-                       , AST.Store ty var $ AST.ExpLit $ AST.LitInteger start
-                       ]
-                       [ AST.Store ty var $
-                         (AST.ExpOp AST.ExpSub
-                          [var, AST.ExpLit $ AST.LitInteger 1])
-                       ]
-                     -- FIXME: Assign correct type to counter
-                     -- FIXME: counter needs to be a MemArea, not a local!
-                     ) $ zip scheds schedFns
+          mapM_ entryEff $ zip scheds schedFns
           -- TODO: Disambiguate the name of this procedure
 -- This perhaps should be seen as an analogue of 'writeC' in Code.hs in Atom.
 
