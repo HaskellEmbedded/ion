@@ -32,13 +32,16 @@ Is this okay?  Should we make this more flexible somehow?  (I feel like Atom
 did it similarly, with V & E.)
 
 -}
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 module Ion where
 
+import           Control.Applicative
 import           Control.Exception
 import           Control.Monad
 import           Data.Maybe ( mapMaybe )
+import           Data.Typeable
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
@@ -207,6 +210,6 @@ flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
 -- FIXME: Check for duplicate names?
 
 data IonException = NodeUnboundException IonNode
-    deriving (Show)
+    deriving (Show, Typeable)
 
 instance Exception IonException
