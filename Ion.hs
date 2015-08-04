@@ -26,6 +26,10 @@ a way to sanitize them into C identifiers.
 do not handle this yet, though I rather should.  This may be complicated - I
 may either need to process the Ivory effect to look at variable references, or
 perhaps add certain features to the monad.
+   * Right now one can only pass variables to an Ion by way of a Ref or some
+derivative, and those must then be dereferenced inside of an 'ivoryEff' call.
+Is this okay?  Should we make this more flexible somehow?  (I feel like Atom
+did it similarly, with V & E.)
 
 -}
 {-# LANGUAGE FlexibleInstances #-}
