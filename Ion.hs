@@ -16,12 +16,19 @@ To-do items:
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
+   * I do not ever check that (absolute) phase @N@ follows @0 <= N <= P-1@,
+where @P@ is the period.
    * Counterpart to 'cond' in Atom should compose as 'phase' and 'period' do.
 (Is this necessary when I can just use the Ivory conditional?)
    * A combinator to explicitly disable a rule (also composing like 'cond')
 might be nice too.
    * I need to either mandate that Ion names must be C identifiers, or make
 a way to sanitize them into C identifiers.
+   * Right now, the combination of Ion name, phase, and period must be unique,
+but this is what the C compiler enforces (maybe), not something Ion does.  It
+may be good to have some additional mechanism to ensure that C names are unique
+so that incorrect code is not generated and so that users don't have to worry
+about 'internal' names clashing with something else.
    * Atom treats everything within a node as happening at the same time, and I
 do not handle this yet, though I rather should.  This may be complicated - I
 may either need to process the Ivory effect to look at variable references, or
@@ -30,6 +37,11 @@ perhaps add certain features to the monad.
 derivative, and those must then be dereferenced inside of an 'ivoryEff' call.
 Is this okay?  Should we make this more flexible somehow?  (I feel like Atom
 did it similarly, with V & E.)
+   * In Atom you can declare a variable inside the monad, and that variable
+declaration is carried around inside it.  Something similar may be good in Ion,
+as it avoids the need for the user to manually 'defMemArea' and couple
+definitions.  However, if I do this, how will I allow external Ivory code
+access to the variable?
 
 -}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -85,15 +97,15 @@ instance Show IvoryAction where
 -- | An action/effect that a node can have.
 data IonAction = IvoryEff IvoryAction -- ^ The Ivory effects that this
                  -- node should perform
-               | SetPhase Phase -- ^ Setting phase
+               | SetPhase PhaseContext PhaseType Int -- ^ Setting phase - i.e.
+                 -- i.e. the count within a period (thus, an absolute phase
+                 -- must range from @0@ up to @N-1@ for period @N@).
                | SetPeriod Int -- ^ Setting period
                | SetName String -- ^ Setting a name
                | NoAction -- ^ Do nothing
                deriving (Show)
 
--- | A phase - i.e. the count within a period (thus, an absolute phase must
--- range from @0@ up to @N-1@ for period @N@).
-data Phase = Phase PhaseContext PhaseType Int deriving (Show)
+-- | Phase = Phase PhaseContext PhaseType Int deriving (Show)
 
 data PhaseContext = Absolute -- ^ Phase is relative to the first tick within a
                     -- period
@@ -142,8 +154,13 @@ ion = makeSubFromAction . SetName
 phase :: Int -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase = makeSubFromAction . SetPhase . Phase Relative Min
+phase = makeSubFromAction . SetPhase Absolute Min
 -- FIXME: This needs to comprehend the different phase types.
+
+delay :: Int -- ^ Relative phase
+         -> Ion a -- ^ Sub-node
+         -> Ion a
+delay = makeSubFromAction . SetPhase Relative Min
 
 -- | Specify a period for a sub-node, returning the parent. (The sub-node may
 -- readily override this period.)
@@ -160,15 +177,23 @@ ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
 
 -- | A scheduled action.  Phase and period here are absolute, and there are no
 -- child nodes.
-data Schedule = Schedule { schedName :: String
-                         , schedPath :: [String]
-                         , schedPhase :: Integer
-                         , schedPeriod :: Integer
-                         , schedAction :: [IvoryAction]
+data Schedule = Schedule { schedId :: Integer -- ^ A unique ID for this
+                           -- action
+                         , schedName :: String -- ^ Name (without any
+                           -- disambiguation applied)
+                         , schedPath :: [String] -- ^ A list of names giving
+                           -- the trail that produced this schedule
+                         , schedPhase :: Integer -- ^ The (absolute & exact)
+                           -- phase of this action
+                         , schedPeriod :: Integer -- ^ The period of this
+                           -- action
+                         , schedAction :: [IvoryAction] -- ^ The Ivory effects
+                           -- for this action
                          }
               deriving (Show)
 
-defaultSchedule = Schedule { schedName = "root"
+defaultSchedule = Schedule { schedId = 0
+                           , schedName = "root"
                            , schedPath = []
                            , schedPhase = 0
                            , schedPeriod = 1
@@ -183,9 +208,9 @@ flatten :: Schedule -- ^ Starting schedule (e.g. 'defaultSchedule')
 flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
   where ctxt' = case ionAction node of
                  IvoryEff iv -> ctxt
-                 SetPhase (Phase _ _ ph) ->
+                 SetPhase Absolute _ ph ->
                    ctxt { schedPhase = fromIntegral ph }
-                   -- FIXME: Handle real phase.
+                   -- FIXME: Handle relative, absolute, and minimum phase.
                  SetPeriod p -> ctxt { schedPeriod = fromIntegral p }
                  SetName name -> ctxt { schedName = name
                                       , schedPath = schedPath ctxt ++ [name]
@@ -207,7 +232,8 @@ flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
         -- Disambiguate the name
         name = schedName ctxt' ++ "_" ++ (show $ schedPhase ctxt') ++ "_" ++
                (show $ schedPeriod ctxt')
--- FIXME: Check for duplicate names?
+-- FIXME: This looks like a good candidate for StateT.
+-- FIXME: This does not handle exact or relative phase.
 
 data IonException = NodeUnboundException IonNode
     deriving (Show, Typeable)
