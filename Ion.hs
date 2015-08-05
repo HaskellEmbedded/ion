@@ -20,8 +20,6 @@ inherited.
 where @P@ is the period.
    * Counterpart to 'cond' in Atom should compose as 'phase' and 'period' do.
 (Is this necessary when I can just use the Ivory conditional?)
-   * A combinator to explicitly disable a rule (also composing like 'cond')
-might be nice too.
    * I need to either mandate that Ion names must be C identifiers, or make
 a way to sanitize them into C identifiers.
    * Atom treats everything within a node as happening at the same time, and I
@@ -37,6 +35,8 @@ declaration is carried around inside it.  Something similar may be good in Ion,
 as it avoids the need for the user to manually 'defMemArea' and couple
 definitions.  However, if I do this, how will I allow external Ivory code
 access to the variable?
+   * Pretty-printing the schedule itself (as Atom does) would probably be a
+good idea.
 
 -}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -68,7 +68,7 @@ instance Applicative Ion where
   (<*>) = ap
 
 instance Monad Ion where
-  ion1 >>= fn = ion2 { ionNodes = ionNodes ion2 ++ ionNodes ion1 }
+  ion1 >>= fn = ion2 { ionNodes = ionNodes ion1 ++ ionNodes ion2 }
     where ion2 = fn $ ionVal ion1
 
   return a = Ion { ionNodes = [], ionVal = a }
@@ -165,6 +165,11 @@ period :: Int -- ^ Period
           -> Ion a
 period = makeSubFromAction . SetPeriod
 
+-- | Combinator which simply ignores the node.  This is intended to mask off
+-- some part of a spec.
+disable :: Ion a -> Ion a
+disable _ = Ion { ionNodes = [], ionVal = undefined }
+
 -- | Turn an Ivory effect into an 'Ion'.
 ivoryEff :: IvoryAction -> Ion ()
 ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
@@ -232,13 +237,17 @@ flattenSt node = do
   -- And recurse to the sub-nodes!
   mapM_ flattenSt $ ionSub node
   -- However, we must clean up by restoring whatever context we started with:
-  modify $ \(_,s) -> (ctxt, s)
--- FIXME: This does not handle exact or minimum phase.
+  modify $ \(c,s) -> (c { schedPath = schedPath ctxt
+                        , schedName = schedName ctxt
+                        }, s)
+  -- FIXME: The above step seems possibly wrong.  Am I certain that no other
+  -- context besides path and name requires backtracking? 
+  -- FIXME: This does not handle exact or minimum phase.
 
 -- | Walk a hierarchical 'IonNode' and turn it into a flat list of
 -- scheduled action.
 flatten :: IonNode -> [Schedule]
-flatten node = l
+flatten node = reverse l
   where (_, l) = execState (flattenSt node) (defaultSchedule, [])
 
 data IonException = NodeUnboundException IonNode

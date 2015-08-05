@@ -34,6 +34,15 @@ baz2 :: Ion ()
 baz2 = phase 10 $ ion "extBaz2" $ do
   ivoryEff $ comment "should be phase 10"
 
+delayTest :: Ion ()
+delayTest = ion "delayTest" $ do
+  ivoryEff $ comment "should be phase 0"
+  delay 10 $ ivoryEff $ comment "delay 10 #1"
+  delay 10 $ ivoryEff $ comment "delay 10 #2"
+  delay 10 $ ivoryEff $ comment "delay 10 #3"
+  ion "delayTest2" $ do
+    delay 20 $ ivoryEff $ comment "should have inherited delay"
+
 -- | Dummy spec for the sake of testing
 test :: Ion ()
 test = ion "Foo" $ do
@@ -56,3 +65,10 @@ test = ion "Foo" $ do
 
   baz
   baz2
+
+  -- FIXME: delayTest improperly inherits phase 10 from baz2.
+  delayTest
+
+  disable $ ion "disabled" $ period 60000 $ do
+    ivoryEff $ comment "Should be disabled"
+    
