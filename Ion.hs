@@ -231,7 +231,9 @@ flattenSt node = do
     where newSched = ctxt' {schedAction = actions, schedName = name}
   -- And recurse to the sub-nodes!
   mapM_ flattenSt $ ionSub node
--- FIXME: This does not handle exact or relative phase.
+  -- However, we must clean up by restoring whatever context we started with:
+  modify $ \(_,s) -> (ctxt, s)
+-- FIXME: This does not handle exact or minimum phase.
 
 -- | Walk a hierarchical 'IonNode' and turn it into a flat list of
 -- scheduled action.
