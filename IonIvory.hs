@@ -35,7 +35,7 @@ ionDef name i0 = (entryProc, mod)
   where mod = do incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes
-        nodes = flatten defaultSchedule $ head $ ionNodes i0
+        nodes = flatten $ head $ ionNodes i0
         -- FIXME: This shouldn't just be taking the head node, and we should
         -- probably also not hard-code defaultSchedule.
         -- The entry procedure for running the schedule:

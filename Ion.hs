@@ -24,11 +24,6 @@ where @P@ is the period.
 might be nice too.
    * I need to either mandate that Ion names must be C identifiers, or make
 a way to sanitize them into C identifiers.
-   * Right now, the combination of Ion name, phase, and period must be unique,
-but this is what the C compiler enforces (maybe), not something Ion does.  It
-may be good to have some additional mechanism to ensure that C names are unique
-so that incorrect code is not generated and so that users don't have to worry
-about 'internal' names clashing with something else.
    * Atom treats everything within a node as happening at the same time, and I
 do not handle this yet, though I rather should.  This may be complicated - I
 may either need to process the Ivory effect to look at variable references, or
@@ -52,6 +47,7 @@ module Ion where
 import           Control.Applicative
 import           Control.Exception
 import           Control.Monad
+import           Control.Monad.State hiding ( forever )
 import           Data.Maybe ( mapMaybe )
 import           Data.Typeable
 
@@ -200,40 +196,48 @@ defaultSchedule = Schedule { schedId = 0
                            , schedAction = []
                            }
 
--- | Walk a hierarchical 'IonNode' and turn it into a flat list of
--- scheduled actions, given a starting context (another 'Schedule')
-flatten :: Schedule -- ^ Starting schedule (e.g. 'defaultSchedule')
-           -> IonNode -- ^ Starting node
-           -> [Schedule]
-flatten ctxt node = newSched ++ (join $ map (flatten ctxtClean) $ ionSub node)
-  where ctxt' = case ionAction node of
-                 IvoryEff iv -> ctxt
-                 SetPhase Absolute _ ph ->
-                   ctxt { schedPhase = fromIntegral ph }
-                   -- FIXME: Handle relative, absolute, and minimum phase.
-                 SetPeriod p -> ctxt { schedPeriod = fromIntegral p }
-                 SetName name -> ctxt { schedName = name
-                                      , schedPath = schedPath ctxt ++ [name]
-                                      }
-                 NoAction -> ctxt
-                 a@_ -> error ("Unknown action type: " ++ show a)
-        -- For the context that we pass forward, clear out the action; actions
-        -- run only once:
-        ctxtClean = ctxt' { schedAction = [] }
-        -- Emit schedule nodes for any children that have Ivory effects:
-        -- (We do this to combine all effects at once that are under the same
-        -- parameters.)
-        getIvory node = case ionAction node of IvoryEff iv -> Just iv
-                                               _           -> Nothing
-        ivoryActions = mapMaybe getIvory $ ionSub node
-        newSched = if null ivoryActions
-                   then [] -- If no actions, don't even emit a schedule item.
-                   else [ctxt' {schedAction = ivoryActions, schedName = name}]
-        -- Disambiguate the name
-        name = schedName ctxt' ++ "_" ++ (show $ schedPhase ctxt') ++ "_" ++
-               (show $ schedPeriod ctxt')
--- FIXME: This looks like a good candidate for StateT.
+-- | Transform a 'Schedule' according to an 'IonAction'.
+modSchedule :: IonAction -> Schedule -> Schedule
+modSchedule (IvoryEff _) s = s
+modSchedule (SetPhase Absolute _ ph) s = s { schedPhase = fromIntegral ph }
+modSchedule (SetPhase Relative _ ph) s =
+  s { schedPhase = schedPhase s + fromIntegral ph }
+modSchedule (SetPeriod p) s = s { schedPeriod = fromIntegral p }
+modSchedule (SetName name) s = s { schedName = name
+                                 , schedPath = schedPath s ++ [name]
+                                 }
+modSchedule NoAction s = s
+-- FIXME: Handle exact and minimum phase.
+
+-- | Actual 'State' implementation of 'flatten'; the contained state
+-- is (starting schedule state, accumulated schedule).
+flattenSt :: IonNode -> State (Schedule, [Schedule]) ()
+flattenSt node = do
+  (ctxt, scheds) <- get
+  let ctxt' = modSchedule (ionAction node) ctxt
+      -- For the context that we pass forward, clear out old actions (they run
+      -- only once) and produce a fresh ID:
+      ctxtNext = ctxt' { schedAction = [], schedId = schedId ctxt + 1 }
+      -- Get a unique name:
+      name = schedName ctxt' ++ "_" ++ (show $ schedId ctxt')
+      -- Get Ivory actions (if any) or else Nothing:
+      getIvory node = case ionAction node of IvoryEff iv -> Just iv
+                                             _           -> Nothing
+  -- Emit schedule nodes for any children that have Ivory effects (We do this
+  -- to combine all effects at once that are under the same parameters.)
+  case (mapMaybe getIvory $ ionSub node) of
+   []      -> put (ctxtNext, scheds)
+   actions -> put (ctxtNext, newSched : scheds)
+    where newSched = ctxt' {schedAction = actions, schedName = name}
+  -- And recurse to the sub-nodes!
+  mapM_ flattenSt $ ionSub node
 -- FIXME: This does not handle exact or relative phase.
+
+-- | Walk a hierarchical 'IonNode' and turn it into a flat list of
+-- scheduled action.
+flatten :: IonNode -> [Schedule]
+flatten node = l
+  where (_, l) = execState (flattenSt node) (defaultSchedule, [])
 
 data IonException = NodeUnboundException IonNode
     deriving (Show, Typeable)
