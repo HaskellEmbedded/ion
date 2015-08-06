@@ -85,14 +85,14 @@ data IonNode = IonNode { ionAction :: IonAction -- ^ What this node does
 
 -- | The type of Ivory action that an 'IonNode' can support. Note that this
 -- purposely forbids breaking, returning, and allocating.
-type IvoryAction = IL.Ivory IL.NoEffects ()
+type IvoryAction = IL.Ivory IL.NoEffects
 
-instance Show IvoryAction where
+instance Show (IvoryAction a) where
   show iv = "Ivory NoEffects () [" ++ show block ++ "]"
     where (_, block) = ILM.runIvory $ ILM.noReturn $ ILM.noBreak $ ILM.noAlloc iv
 
 -- | An action/effect that a node can have.
-data IonAction = IvoryEff IvoryAction -- ^ The Ivory effects that this
+data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
                  -- node should perform
                | SetPhase PhaseContext PhaseType Integer -- ^ Setting phase -
                  -- i.e. the count within a period (thus, an absolute phase
@@ -175,7 +175,7 @@ disable :: Ion a -> Ion a
 disable _ = Ion { ionNodes = [], ionVal = undefined }
 
 -- | Turn an Ivory effect into an 'Ion'.
-ivoryEff :: IvoryAction -> Ion ()
+ivoryEff :: IvoryAction () -> Ion ()
 ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
                   , ionVal = ()
                   }
@@ -190,7 +190,8 @@ data Schedule =
            , schedPhase :: Integer -- ^ The (absolute & exact) phase of this
              -- action
            , schedPeriod :: Integer -- ^ The period of this action
-           , schedAction :: [IvoryAction] -- ^ The Ivory effects for this action
+           , schedAction :: [IvoryAction ()] -- ^ The Ivory effects for this
+                            -- action
            }
   deriving (Show)
 
