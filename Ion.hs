@@ -16,8 +16,6 @@ To-do items:
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
-   * I do not ever check that (absolute) phase @N@ follows @0 <= N <= P-1@,
-where @P@ is the period.
    * Counterpart to 'cond' in Atom should compose as 'phase' and 'period' do.
 Ivory conditionals don't exactly suffice here if I want to be able to compose
 this with other Ion specs, since I cannot stick an Ion spec into an Ivory
@@ -150,23 +148,26 @@ ion = makeSubFromAction . SetName
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
-phase :: Integer -- ^ Phase
+phase :: Integral i =>
+         i -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase = makeSubFromAction . SetPhase Absolute Min
+phase = makeSubFromAction . SetPhase Absolute Min . toInteger
 -- FIXME: This needs to comprehend the different phase types.
 
-delay :: Integer -- ^ Relative phase
+delay :: Integral i =>
+         i -- ^ Relative phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-delay = makeSubFromAction . SetPhase Relative Min
+delay = makeSubFromAction . SetPhase Relative Min . toInteger
 
 -- | Specify a period for a sub-node, returning the parent. (The sub-node may
 -- readily override this period.)
-period :: Integer -- ^ Period
+period :: Integral i =>
+          i -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period = makeSubFromAction . SetPeriod
+period = makeSubFromAction . SetPeriod . toInteger
 
 -- | Combinator which simply ignores the node.  This is intended to mask off
 -- some part of a spec.
