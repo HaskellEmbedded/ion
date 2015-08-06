@@ -96,10 +96,10 @@ instance Show IvoryAction where
 -- | An action/effect that a node can have.
 data IonAction = IvoryEff IvoryAction -- ^ The Ivory effects that this
                  -- node should perform
-               | SetPhase PhaseContext PhaseType Int -- ^ Setting phase - i.e.
+               | SetPhase PhaseContext PhaseType Integer -- ^ Setting phase -
                  -- i.e. the count within a period (thus, an absolute phase
                  -- must range from @0@ up to @N-1@ for period @N@).
-               | SetPeriod Int -- ^ Setting period
+               | SetPeriod Integer -- ^ Setting period
                | SetName String -- ^ Setting a name
                | NoAction -- ^ Do nothing
                deriving (Show)
@@ -146,26 +146,24 @@ makeSubFromAction act = makeSub (\i -> i { ionAction = act })
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
-ion name node = case checkCName name of
-                 Nothing -> makeSubFromAction (SetName name) node
-                 Just i -> throw $ InvalidCName name i
+ion = makeSubFromAction . SetName
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
-phase :: Int -- ^ Phase
+phase :: Integer -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
 phase = makeSubFromAction . SetPhase Absolute Min
 -- FIXME: This needs to comprehend the different phase types.
 
-delay :: Int -- ^ Relative phase
+delay :: Integer -- ^ Relative phase
          -> Ion a -- ^ Sub-node
          -> Ion a
 delay = makeSubFromAction . SetPhase Relative Min
 
 -- | Specify a period for a sub-node, returning the parent. (The sub-node may
 -- readily override this period.)
-period :: Int -- ^ Period
+period :: Integer -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
 period = makeSubFromAction . SetPeriod
@@ -206,13 +204,18 @@ defaultSchedule = Schedule { schedId = 0
 -- | Transform a 'Schedule' according to an 'IonAction'.
 modSchedule :: IonAction -> Schedule -> Schedule
 modSchedule (IvoryEff _) s = s
-modSchedule (SetPhase Absolute _ ph) s = s { schedPhase = fromIntegral ph }
-modSchedule (SetPhase Relative _ ph) s =
-  s { schedPhase = schedPhase s + fromIntegral ph }
+modSchedule (SetPhase t _ ph) s =
+  if (ph' >= schedPeriod s)
+  then throw $ PhaseExceedsPeriod (schedPath s) ph' (schedPeriod s)
+  else s { schedPhase = ph' }
+  where ph' = case t of Absolute -> ph
+                        Relative -> schedPhase s + ph
 modSchedule (SetPeriod p) s = s { schedPeriod = fromIntegral p }
-modSchedule (SetName name) s = s { schedName = name
-                                 , schedPath = schedPath s ++ [name]
-                                 }
+modSchedule (SetName name) s =
+  case checkCName name of Just i -> throw $ InvalidCName (schedPath s) name i
+                          Nothing -> s { schedName = name
+                                       , schedPath = schedPath s ++ [name]
+                                       }
 modSchedule NoAction s = s
 -- FIXME: Handle exact and minimum phase.
 
@@ -253,8 +256,10 @@ flatten :: IonNode -> [Schedule]
 flatten node = reverse l
   where (_, l) = execState (flattenSt node) (defaultSchedule, [])
 
-data IonException = InvalidCName String Int -- ^ Node, C name, and index at
-                    -- which it is invalid
+data IonException = InvalidCName [String] String Int -- ^ Path, C name, and
+                    -- index at which it is invalid
+                  | PhaseExceedsPeriod [String] Integer Integer -- ^ Path,
+                    -- phase, period
     deriving (Show, Typeable)
 
 instance Exception IonException
