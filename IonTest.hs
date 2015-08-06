@@ -71,4 +71,3 @@ test = ion "Foo" $ do
 
   disable $ ion "disabled" $ period 60000 $ do
     ivoryEff $ comment "Should be disabled"
-    

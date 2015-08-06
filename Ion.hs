@@ -19,9 +19,10 @@ inherited.
    * I do not ever check that (absolute) phase @N@ follows @0 <= N <= P-1@,
 where @P@ is the period.
    * Counterpart to 'cond' in Atom should compose as 'phase' and 'period' do.
-(Is this necessary when I can just use the Ivory conditional?)
-   * I need to either mandate that Ion names must be C identifiers, or make
-a way to sanitize them into C identifiers.
+Ivory conditionals don't exactly suffice here if I want to be able to compose
+this with other Ion specs, since I cannot stick an Ion spec into an Ivory
+effect.  This might be tricky from the code generation standpoint: I would
+have to embed the conditional into every single function.
    * Atom treats everything within a node as happening at the same time, and I
 do not handle this yet, though I rather should.  This may be complicated - I
 may either need to process the Ivory effect to look at variable references, or
@@ -53,6 +54,8 @@ import           Data.Typeable
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
+
+import           IonUtil
 
 -- | The monad for expressing an Ion specification.
 data Ion a = Ion { ionNodes :: [IonNode] -- ^ An accumulation of nodes; the
@@ -143,7 +146,9 @@ makeSubFromAction act = makeSub (\i -> i { ionAction = act })
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
-ion = makeSubFromAction . SetName
+ion name node = case checkCName name of
+                 Nothing -> makeSubFromAction (SetName name) node
+                 Just i -> throw $ InvalidCName name i
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
@@ -178,20 +183,17 @@ ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
 
 -- | A scheduled action.  Phase and period here are absolute, and there are no
 -- child nodes.
-data Schedule = Schedule { schedId :: Integer -- ^ A unique ID for this
-                           -- action
-                         , schedName :: String -- ^ Name (without any
-                           -- disambiguation applied)
-                         , schedPath :: [String] -- ^ A list of names giving
-                           -- the trail that produced this schedule
-                         , schedPhase :: Integer -- ^ The (absolute & exact)
-                           -- phase of this action
-                         , schedPeriod :: Integer -- ^ The period of this
-                           -- action
-                         , schedAction :: [IvoryAction] -- ^ The Ivory effects
-                           -- for this action
-                         }
-              deriving (Show)
+data Schedule =
+  Schedule { schedId :: Integer -- ^ A unique ID for this -- action
+           , schedName :: String -- ^ Name (without any disambiguation applied)
+           , schedPath :: [String] -- ^ A list of names giving the trail that
+             -- produced this schedule
+           , schedPhase :: Integer -- ^ The (absolute & exact) phase of this
+             -- action
+           , schedPeriod :: Integer -- ^ The period of this action
+           , schedAction :: [IvoryAction] -- ^ The Ivory effects for this action
+           }
+  deriving (Show)
 
 defaultSchedule = Schedule { schedId = 0
                            , schedName = "root"
@@ -251,7 +253,8 @@ flatten :: IonNode -> [Schedule]
 flatten node = reverse l
   where (_, l) = execState (flattenSt node) (defaultSchedule, [])
 
-data IonException = NodeUnboundException IonNode
+data IonException = InvalidCName String Int -- ^ Node, C name, and index at
+                    -- which it is invalid
     deriving (Show, Typeable)
 
 instance Exception IonException
