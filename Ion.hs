@@ -16,11 +16,6 @@ To-do items:
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
-   * Counterpart to 'cond' in Atom should compose as 'phase' and 'period' do.
-Ivory conditionals don't exactly suffice here if I want to be able to compose
-this with other Ion specs, since I cannot stick an Ion spec into an Ivory
-effect.  This might be tricky from the code generation standpoint: I would
-have to embed the conditional into every single function.
    * Atom treats everything within a node as happening at the same time, and I
 do not handle this yet, though I rather should.  This may be complicated - I
 may either need to process the Ivory effect to look at variable references, or
@@ -99,6 +94,9 @@ data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
                  -- must range from @0@ up to @N-1@ for period @N@).
                | SetPeriod Integer -- ^ Setting period
                | SetName String -- ^ Setting a name
+               | AddCondition (IvoryAction IL.IBool) -- ^ Adding a condition to
+                 -- this node which must return 'true' for the node *and* for
+                 -- any sub-nodes to execute their actions
                | NoAction -- ^ Do nothing
                deriving (Show)
 
@@ -174,6 +172,10 @@ period = makeSubFromAction . SetPeriod . toInteger
 disable :: Ion a -> Ion a
 disable _ = Ion { ionNodes = [], ionVal = undefined }
 
+-- | Combinator to attach a condition to a sub-node
+cond :: IvoryAction IL.IBool -> Ion a -> Ion a
+cond = makeSubFromAction . AddCondition
+
 -- | Turn an Ivory effect into an 'Ion'.
 ivoryEff :: IvoryAction () -> Ion ()
 ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
@@ -192,6 +194,9 @@ data Schedule =
            , schedPeriod :: Integer -- ^ The period of this action
            , schedAction :: [IvoryAction ()] -- ^ The Ivory effects for this
                             -- action
+           , schedCond :: [IvoryAction IL.IBool] -- ^ Ivory effects which all
+                          -- must return 'true' for anything in 'schedAction'
+                          -- to execute
            }
   deriving (Show)
 
@@ -201,6 +206,7 @@ defaultSchedule = Schedule { schedId = 0
                            , schedPhase = 0
                            , schedPeriod = 1
                            , schedAction = []
+                           , schedCond = []
                            }
 
 -- | Transform a 'Schedule' according to an 'IonAction'.
@@ -218,6 +224,7 @@ modSchedule (SetName name) s =
                           Nothing -> s { schedName = name
                                        , schedPath = schedPath s ++ [name]
                                        }
+modSchedule (AddCondition iv) s = s { schedCond = iv : schedCond s }
 modSchedule NoAction s = s
 -- FIXME: Handle exact and minimum phase.
 

@@ -71,3 +71,9 @@ test = ion "Foo" $ do
 
   disable $ ion "disabled" $ period 60000 $ do
     ivoryEff $ comment "Should be disabled"
+
+  cond (return false) $ ion "condTest" $ do
+    ivoryEff $ comment "Conditional test"
+    ion "condTest1" $ ivoryEff $ comment "Conditional test sub 1"
+    ion "condTest2" $ ivoryEff $ comment "Conditional test sub 2"
+    ion "condTest3" $ ivoryEff $ comment "Conditional test sub 3"

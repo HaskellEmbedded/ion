@@ -98,4 +98,15 @@ getIvory i0 = do
   comment $ "Path: " ++ (foldl1 (\s acc -> (s ++ "." ++ acc)) $ schedPath i0)
   comment $ "Phase: " ++ (show $ schedPhase i0)
   comment $ "Period: " ++ (show $ schedPeriod i0)
-  sequence_ $ schedAction i0
+  let actions = sequence_ $ schedAction i0
+  case schedCond i0 of
+    -- If no conditions, apply actions directly:
+    [] -> actions
+    -- Otherwise, evaluate & logical AND them all:
+    condEffs -> do
+      conds <- sequence condEffs
+      ifte_ (foldr1 (.&&) conds)
+        actions
+        $ return ()
+      -- FIXME: Short-circuit evaluation might be helpful here.  We don't need
+      -- to evaluate any other condition as soon as one has failed.
