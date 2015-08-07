@@ -235,9 +235,7 @@ flattenSt node = do
   (ctxt, scheds) <- get
   let -- Update our context with the actions in 'node':
       ctxt' = modSchedule (ionAction node) ctxt
-      -- For the context that we pass forward, clear out old actions (they run
-      -- only once) and produce a fresh ID:
-      ctxtNext = ctxt' { schedAction = [], schedId = schedId ctxt + 1 }
+      ctxtNext = ctxt' { schedAction = [] }
       -- Get a unique name:
       name = schedName ctxt' ++ "_" ++ (show $ schedId ctxt')
       -- Get Ivory actions (if any) or else Nothing:
@@ -246,8 +244,11 @@ flattenSt node = do
   -- Emit schedule items for any children that have Ivory effects (We do this
   -- to combine all effects at once that are under the same parameters.)
   case (mapMaybe getIvory $ ionSub node) of
-   []      -> put (ctxtNext, scheds)
-   actions -> put (ctxtNext, newSched : scheds)
+   -- For the context that we pass forward, clear out old actions:
+   [] -> put (ctxt' { schedAction = [] }, scheds)
+   -- If we emit a schedule item then also increment ID:
+   actions -> put (ctxt' { schedAction = [], schedId = schedId ctxt + 1 }, 
+                   newSched : scheds)
     where newSched = ctxt' { schedAction = actions, schedName = name }
   -- And recurse to the sub-nodes!
   mapM_ flattenSt $ ionSub node
