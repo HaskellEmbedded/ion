@@ -110,3 +110,7 @@ getIvory i0 = do
         $ return ()
       -- FIXME: Short-circuit evaluation might be helpful here.  We don't need
       -- to evaluate any other condition as soon as one has failed.
+      -- This might be inefficient for other reasons too - we re-evaluate the
+      -- same condition in every single sub-node.
+      -- FIXME: Can we evaluate Ivory constants at code generation time and
+      -- just fully enable/disable the node then?

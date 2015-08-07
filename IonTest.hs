@@ -77,3 +77,6 @@ test = ion "Foo" $ do
     ion "condTest1" $ ivoryEff $ comment "Conditional test sub 1"
     ion "condTest2" $ ivoryEff $ comment "Conditional test sub 2"
     ion "condTest3" $ ivoryEff $ comment "Conditional test sub 3"
+    cond (return true) $ ion "twoConds" $ do
+      ivoryEff $ comment "Two conditions"
+      ion "condTest4" $ ivoryEff $ comment "Also two conditions"
