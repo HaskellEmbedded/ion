@@ -11,6 +11,7 @@ Atom does), interfaces with another very powerful, more general EDSL,
 
 To-do items:
 
+   * Continue writing documentation and examples!
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
 (This is partially done in 'flatten'.)
    * I can do a relative phase; what about a relative period? That is, a
@@ -31,6 +32,10 @@ definitions.  However, if I do this, how will I allow external Ivory code
 access to the variable?
    * Pretty-printing the schedule itself (as Atom does) would probably be a
 good idea.
+   * Replacing the existing Ion monad with some kind of free monad might
+simplify and clarify the code.
+   * Atom contained a way to retrieve the current period and phase inside the
+monad; I should implement this.
 
 -}
 {-# LANGUAGE DeriveDataTypeable #-}
@@ -84,7 +89,8 @@ type IvoryAction = IL.Ivory IL.NoEffects
 
 instance Show (IvoryAction a) where
   show iv = "Ivory NoEffects () [" ++ show block ++ "]"
-    where (_, block) = ILM.runIvory $ ILM.noReturn $ ILM.noBreak $ ILM.noAlloc iv
+    where (_, block) =
+            ILM.runIvory $ ILM.noReturn $ ILM.noBreak $ ILM.noAlloc iv
 
 -- | An action/effect that a node can have.
 data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
@@ -261,7 +267,7 @@ flattenSt node = do
   -- FIXME: This does not handle exact or minimum phase.
 
 -- | Walk a hierarchical 'IonNode' and turn it into a flat list of
--- scheduled action.
+-- scheduled actions.
 flatten :: IonNode -> [Schedule]
 flatten node = reverse l
   where (_, l) = execState (flattenSt node) (defaultSchedule, [])
