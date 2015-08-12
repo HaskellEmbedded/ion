@@ -150,7 +150,9 @@ ion :: String -- ^ Name
        -> Ion a
 ion = makeSubFromAction . SetName
 
--- | 'area', but with a 'IL.Proxy' argument to disambiguate the type.
+-- | Same as 'area'', but with a 'IL.Proxy' argument to specify the type in
+-- cases where nothing else has specified it, and external type signatures are
+-- too annoying.
 areaP' :: (IL.IvoryArea area, IL.IvoryZero area) =>
          String -- ^ Name of variable
          -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
@@ -159,6 +161,10 @@ areaP' :: (IL.IvoryArea area, IL.IvoryZero area) =>
 areaP' name init _ = area' name init
 
 -- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
+-- If the initial value fails to specify the type of this, then an external
+-- signature may be needed (or instead 'areaP'').  If access to this variable
+-- is needed outside of the 'Ion' monad, retrieve the reference from an 'Ion'
+-- with the 'ionRef' function.
 area' :: (IL.IvoryArea area, IL.IvoryZero area) =>
          String -- ^ Name of variable
          -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
@@ -169,8 +175,8 @@ area' name init = Ion { ionNodes = []
                       }
   where mem = IL.area name init
 
--- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (i.e. after a
--- call to 'area'' or 'areaP''
+-- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (for instance, to
+-- access the variable from other Ivory code).
 ionRef :: (IL.IvoryArea area, IL.IvoryZero area) =>
           Ion (IL.Ref IL.Global area) -> IL.Ref IL.Global area
 ionRef = ionVal
