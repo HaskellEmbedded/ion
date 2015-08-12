@@ -175,6 +175,12 @@ area' name init = Ion { ionNodes = []
                       }
   where mem = IL.area name init
 
+-- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (i.e. after a
+-- call to 'area'' or 'areaP''
+ionRef :: (IL.IvoryArea area, IL.IvoryZero area) =>
+          Ion (IL.Ref IL.Global area) -> IL.Ref IL.Global area
+ionRef = ionVal
+
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
 phase :: Integral i =>

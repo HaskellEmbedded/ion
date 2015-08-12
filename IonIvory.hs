@@ -28,7 +28,7 @@ import           IonUtil
 -- | Generate an Ivory schedule procedure and needed 'ModuleDef' from the given
 -- Ion spec.
 ionDef :: String -- ^ Name for schedule function
-          -> Ion () -- ^ Ion specification
+          -> Ion a -- ^ Ion specification
           -> (Def ('[] ':-> ()), ModuleDef) -- ^ (schedule entry procedure,
           -- module definitions)
 ionDef name i0 = (entryProc, mod)
