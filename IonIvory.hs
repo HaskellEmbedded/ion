@@ -32,7 +32,8 @@ ionDef :: String -- ^ Name for schedule function
           -> (Def ('[] ':-> ()), ModuleDef) -- ^ (schedule entry procedure,
           -- module definitions)
 ionDef name i0 = (entryProc, mod)
-  where mod = do incl entryProc
+  where mod = do ionDefs i0
+                 incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes
         nodes = flatten $ head $ ionNodes i0

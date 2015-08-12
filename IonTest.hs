@@ -3,6 +3,7 @@ Module: IonTest
 Description: Example Ion module & code generation
 Copyright: (c) 2015 Chris Hodapp
 -}
+{-# LANGUAGE DataKinds #-}
 module IonTest where
 
 import           Control.Exception
@@ -47,6 +48,8 @@ delayTest = ion "delayTest" $ do
 test :: Ion ()
 test = ion "Foo" $ do
 
+  test <- area' "testMem" Nothing :: Ion (Ref Global (Stored Uint16))
+  
   period 20 $ do
     ivoryEff $ comment "period 20a"
     ivoryEff $ comment "period 20b"

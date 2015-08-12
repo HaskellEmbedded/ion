@@ -29,7 +29,8 @@ did it similarly, with V & E.)
 declaration is carried around inside it.  Something similar may be good in Ion,
 as it avoids the need for the user to manually 'defMemArea' and couple
 definitions.  However, if I do this, how will I allow external Ivory code
-access to the variable?
+access to the variable?  (getVar :: Ion (ref Global area) -> ref global area
+or something?)
    * Pretty-printing the schedule itself (as Atom does) would probably be a
 good idea.
    * Replacing the existing Ion monad with some kind of free monad might
@@ -38,6 +39,7 @@ simplify and clarify the code.
 monad; I should implement this.
 
 -}
+{-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 
@@ -58,8 +60,10 @@ import           IonUtil
 -- | The monad for expressing an Ion specification.
 data Ion a = Ion { ionNodes :: [IonNode] -- ^ An accumulation of nodes; the
                    -- head is considered the 'current' node
+                 , ionDefs :: IL.ModuleDef -- ^ 'ModuleDef' for anything that
+                   -- needs to be declared for Ivory
                  , ionVal :: a
-                 } deriving (Show)
+                 }-- deriving (Show)
 
 instance Functor Ion where
   fmap f ion = ion { ionVal = f $ ionVal ion }
@@ -69,10 +73,12 @@ instance Applicative Ion where
   (<*>) = ap
 
 instance Monad Ion where
-  ion1 >>= fn = ion2 { ionNodes = ionNodes ion1 ++ ionNodes ion2 }
+  ion1 >>= fn = ion2 { ionNodes = ionNodes ion1 ++ ionNodes ion2
+                     , ionDefs = ionDefs ion1 >> ionDefs ion2
+                     }
     where ion2 = fn $ ionVal ion1
 
-  return a = Ion { ionNodes = [], ionVal = a }
+  return a = Ion { ionNodes = [], ionVal = a, ionDefs = return () }
 
 -- | A node representing some context in the schedule, and the actions this
 -- node includes.  'ionAction' (except for 'IvoryEff' and 'NoAction') applies
@@ -150,6 +156,17 @@ ion :: String -- ^ Name
        -> Ion a
 ion = makeSubFromAction . SetName
 
+-- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
+area' :: (IL.IvoryArea area, IL.IvoryZero area) =>
+         String -- ^ Name of variable
+         -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
+         -> Ion (IL.Ref IL.Global area)
+area' name init = Ion { ionNodes = []
+                      , ionDefs = IL.defMemArea mem
+                      , ionVal = IL.addrOf mem
+                      }
+  where mem = IL.area name init
+
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
 phase :: Integral i =>
@@ -176,7 +193,7 @@ period = makeSubFromAction . SetPeriod . toInteger
 -- | Combinator which simply ignores the node.  This is intended to mask off
 -- some part of a spec.
 disable :: Ion a -> Ion a
-disable _ = Ion { ionNodes = [], ionVal = undefined }
+disable _ = Ion { ionNodes = [], ionVal = undefined, ionDefs = return () }
 
 -- | Combinator to attach a condition to a sub-node
 cond :: IvoryAction IL.IBool -> Ion a -> Ion a
@@ -186,6 +203,7 @@ cond = makeSubFromAction . AddCondition
 ivoryEff :: IvoryAction () -> Ion ()
 ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
                   , ionVal = ()
+                  , ionDefs = return ()
                   }
 
 -- | A scheduled action.  Phase and period here are absolute, and there are no
