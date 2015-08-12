@@ -25,12 +25,6 @@ perhaps add certain features to the monad.
 derivative, and those must then be dereferenced inside of an 'ivoryEff' call.
 Is this okay?  Should we make this more flexible somehow?  (I feel like Atom
 did it similarly, with V & E.)
-   * In Atom you can declare a variable inside the monad, and that variable
-declaration is carried around inside it.  Something similar may be good in Ion,
-as it avoids the need for the user to manually 'defMemArea' and couple
-definitions.  However, if I do this, how will I allow external Ivory code
-access to the variable?  (getVar :: Ion (ref Global area) -> ref global area
-or something?)
    * Pretty-printing the schedule itself (as Atom does) would probably be a
 good idea.
    * Replacing the existing Ion monad with some kind of free monad might
