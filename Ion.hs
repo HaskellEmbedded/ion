@@ -293,6 +293,7 @@ flattenSt node = do
   -- However, we must clean up by restoring whatever context we started with:
   modify $ \(c,s) -> (c { schedPath = schedPath ctxt
                         , schedName = schedName ctxt
+                        , schedCond = schedCond ctxt
                         }, s)
   -- FIXME: The above step seems possibly wrong.  Am I certain that no other
   -- context besides path and name requires backtracking? 

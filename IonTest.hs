@@ -83,3 +83,7 @@ test = ion "Foo" $ do
     cond (return true) $ ion "twoConds" $ do
       ivoryEff $ comment "Two conditions"
       ion "condTest4" $ ivoryEff $ comment "Also two conditions"
+
+
+  cond (return true) $ ion "condTest2" $ do
+    ivoryEff $ comment "Should have just one condition"

@@ -102,9 +102,11 @@ getIvory i0 = do
   let actions = sequence_ $ schedAction i0
   case schedCond i0 of
     -- If no conditions, apply actions directly:
-    [] -> actions
+    [] -> do comment "Action has no conditions"
+             actions
     -- Otherwise, evaluate & logical AND them all:
     condEffs -> do
+      comment $ "Action has " ++ (show $ length condEffs) ++ " conditions:"
       conds <- sequence condEffs
       ifte_ (foldr1 (.&&) conds)
         actions
