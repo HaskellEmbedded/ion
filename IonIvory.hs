@@ -5,6 +5,11 @@ Copyright: (c) 2015 Chris Hodapp
 
 This contains functionality for converting the 'Ion' type to Ivory constructs.
 
+Known issues:
+
+   * You must depend on the Ivory module that makes use of the definitions
+from 'ionDef' if you want to reference a variable declared with 'area''.
+
 -}
 
 {-# LANGUAGE DataKinds #-}
