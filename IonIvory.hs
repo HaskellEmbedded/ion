@@ -65,6 +65,8 @@ ionDef name i0 = (entryProc, mod)
             (Ty.TyWord Ty.Word32) -> areaDef (Proxy :: Proxy Uint32)
             (Ty.TyWord Ty.Word64) -> areaDef (Proxy :: Proxy Uint64)
             -- FIXME: Is there a cleaner way to do the above?
+            -- FIXME: I think this introduces problems when phase proceeds
+            -- period, and phase exceeds a Word8.
         -- The Ivory procedure for some schedule item:
         mkSchedFn sch = proc ("ion_" ++ schedName sch) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory sch

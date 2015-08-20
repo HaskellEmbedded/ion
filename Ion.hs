@@ -31,6 +31,8 @@ good idea.
 simplify and clarify the code.
    * Atom contained a way to retrieve the current period and phase inside the
 monad; I should implement this.
+   * There is *still* a problem with phase and period 'leaking' between
+consecutive actions in the monad!
 
 -}
 {-# LANGUAGE DataKinds #-}
