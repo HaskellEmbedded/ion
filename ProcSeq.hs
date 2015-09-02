@@ -11,7 +11,7 @@ I am still not entirely sure how much this belongs in Ion.
 
 -}
 module ProcSeq ( ProcSeq
-               , inclSeq
+               , seqDef
                , newProc
                , newProcP
                , newArea
@@ -37,10 +37,10 @@ data SeqState = SeqState { seqId :: String -- ^ Unique (per instance) ID
                          , seqDefs :: ModuleDef
                          }
 
--- | Return the 'ModuleDef' and procedure for a 'ProcSeq', given a unique
--- string for an ID.
-inclSeq :: ProcSeq (Def proc) -> String -> (ModuleDef, Def proc)
-inclSeq s id = (seqDefs st, fn)
+-- | Return the procedure for a 'ProcSeq' and the acculumated 'ModuleDef',
+-- given a unique string for an ID.
+seqDef :: ProcSeq (Def proc) -> String -> (Def proc, ModuleDef)
+seqDef s id = (fn, seqDefs st)
   where (fn, st) = runState s init
         init = SeqState { seqId = id, seqNum = 0, seqDefs = return () }
 
