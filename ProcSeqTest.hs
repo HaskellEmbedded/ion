@@ -3,7 +3,7 @@ Module: ProcSeqTest
 Description: Example ProcSeq usage
 Copyright: (c) 2015 Chris Hodapp
 -}
-{-# LANGUAGE DataKinds, TypeOperators #-}
+{-# LANGUAGE DataKinds, RecursiveDo, TypeOperators #-}
 module ProcSeqTest where
 
 import           Data.Proxy ( Proxy(..) )
@@ -23,16 +23,18 @@ main = do
       ionModule = package "procseq" $ defs
   runCompiler [ionModule] [] ivoryOpts
 
+-- Note the use of 'RecursiveDo' and 'mdo' to allow us to write things in a
+-- more logical sequence.
 testSeq :: ProcSeq (Def ('[] ':-> ()))
-testSeq = do
+testSeq = mdo
 
   mem <- newArea $ Just $ ival (0 :: Uint16)
   
-  other <- newProcP (Proxy :: Proxy (Def ('[] ':-> ()))) $ body $ do
-    comment "Inside 'other'"
-
   start <- newProc $ body $ do
     comment "Inside 'start'"
     call_ other
+
+  other <- newProcP (Proxy :: Proxy (Def ('[] ':-> ()))) $ body $ do
+    comment "Inside 'other'"
 
   return start
