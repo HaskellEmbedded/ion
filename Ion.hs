@@ -152,15 +152,15 @@ ion :: String -- ^ Name
        -> Ion a
 ion = makeSubFromAction . SetName
 
--- | Same as 'area'', but with a 'IL.Proxy' argument to specify the type in
+-- | Same as 'area'', but with an initial 'IL.Proxy' to specify the type in
 -- cases where nothing else has specified it, and external type signatures are
 -- too annoying.
 areaP' :: (IL.IvoryArea area, IL.IvoryZero area) =>
-         String -- ^ Name of variable
+         IL.Proxy area -- ^ Proxy (to disambiguate type)
+         -> String -- ^ Name of variable
          -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
-         -> IL.Proxy area -- ^ Proxy (to disambiguate type)
          -> Ion (IL.Ref IL.Global area)
-areaP' name init _ = area' name init
+areaP' _ = area'
 
 -- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
 -- If the initial value fails to specify the type of this, then an external

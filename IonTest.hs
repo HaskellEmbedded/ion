@@ -48,7 +48,7 @@ delayTest = ion "delayTest" $ do
 test :: Ion ()
 test = ion "Foo" $ do
 
-  test <- areaP' "testMem" Nothing (Proxy :: Proxy (Stored Uint16))
+  test <- areaP' (Proxy :: Proxy (Stored Uint16)) "testMem" Nothing
   
   period 20 $ do
     ivoryEff $ comment "period 20a"
