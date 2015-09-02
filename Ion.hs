@@ -11,6 +11,7 @@ Atom does), interfaces with another very powerful, more general EDSL,
 
 To-do items:
 
+   * Put this code into sensible namespaces!
    * Continue writing documentation and examples!
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
 (This is partially done in 'flatten'.)
