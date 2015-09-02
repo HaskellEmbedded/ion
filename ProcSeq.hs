@@ -5,9 +5,19 @@ Copyright: (c) 2015 Chris Hodapp
 
 This is an experimental module for sequencing and bundling related procedures
 together, particularly for cases when they call each other in
-continuation-passing style and need to be composed.
+continuation-passing style or rely on asynchronous callbacks - and need to be
+composed.
 
 I am still not entirely sure how much this belongs in Ion.
+
+Things to consider:
+
+   * How would I represent a long non-blocking delay in this?
+   * In my SPI example, I send an opcode along with a length and an expected
+length to read back.  This call is async, and the return continuation receives
+the number of bytes actually read.  I want to check this number at the return
+continuation - and I'd like to avoid having to write this manually for every
+case and repeat the number of expected bytes.  How would I represent this?
 
 -}
 module ProcSeq ( ProcSeq
