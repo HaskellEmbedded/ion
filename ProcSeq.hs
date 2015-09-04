@@ -109,7 +109,7 @@ newAreaP _ = newArea
 
 -- | Create a timer resource.  The returned 'Ion' still must be called at
 -- regular intervals (e.g. by including it in a larger Ion spec that is
--- already active).  See 'startTimer' and 'endTimer' to actually activate this
+-- already active).  See 'startTimer' and 'stopTimer' to actually activate this
 -- timer.
 timer :: (a ~ 'Stored t, Num t, IvoryStore t, IvoryInit t, IvoryEq t,
           IvoryOrd t, IvoryArea a, IvoryZero a) =>
