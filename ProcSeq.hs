@@ -21,10 +21,12 @@ case and repeat the number of expected bytes.  How would I represent this?
 
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module ProcSeq ( ProcSeq
                , seqDef
+               , newName
                , newProc
                , newProcP
                , newArea
@@ -48,6 +50,8 @@ import           Ivory.Language hiding ( Proxy )
 import           Ivory.Language.MemArea
 import           Ivory.Language.Proc ( Def(..), IvoryCall_, IvoryProcDef )
 
+import           Ion
+
 -- | This type assists with bundling together sequences of call and state,
 -- while creating unique names so that multiple instances do not conflict.
 type ProcSeq t = State SeqState t
@@ -55,7 +59,7 @@ type ProcSeq t = State SeqState t
 -- | State that is passed along in a 'ProcSeq' which accumulates 'ModuleDef'
 -- and increments numbers to generate unique names
 data SeqState = SeqState { seqId :: String -- ^ Unique (per instance) ID
-                         , seqNum :: Int -- ^ Number that is incremented
+                         , seqNum :: Int -- ^ Next unused number
                          , seqDefs :: ModuleDef
                          }
 
@@ -66,17 +70,21 @@ seqDef s id = (fn, seqDefs st)
   where (fn, st) = runState s init
         init = SeqState { seqId = id, seqNum = 0, seqDefs = return () }
 
+-- | Retrieve a name that will be unique for this instance.
+newName :: ProcSeq String
+newName = do
+  state <- get
+  let num' = seqNum state
+  put state { seqNum = num' + 1 }
+  return $ seqId state ++ "_" ++ show num'
+
 -- | Like Ivory 'proc', but leaving out the first argument (it derives the
 -- name from 'ProcSeq').
 newProc :: (IvoryProcDef proc impl) => impl -> ProcSeq (Def proc)
 newProc impl = do
-  state <- get
-  let num' = (seqNum state) + 1
-      fn = proc (seqId state ++ "_" ++ show num') impl
-      state' = state { seqNum = num'
-                     , seqDefs = seqDefs state >> incl fn
-                     }
-  put state'
+  name <- newName
+  let fn = proc name impl
+  modify (\s -> s { seqDefs = seqDefs s >> incl fn })
   return fn
 
 -- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type
@@ -89,13 +97,9 @@ newProcP _ = newProc
 newArea :: (IvoryArea area, IvoryZero area) =>
            Maybe (Init area) -> ProcSeq (MemArea area)
 newArea init = do
-  state <- get
-  let num' = (seqNum state) + 1
-      a = area (seqId state ++ "_" ++ show num') init
-      state' = state { seqNum = num'
-                     , seqDefs = seqDefs state >> defMemArea a
-                     }
-  put state'
+  name <- newName
+  let a = area name init
+  modify (\s -> s { seqDefs = seqDefs s >> defMemArea a })
   return a
 
 -- | 'newArea' with an initial 'Proxy' to disambiguate the area type
@@ -107,8 +111,16 @@ newAreaP _ = newArea
 -- regular intervals (e.g. by including it in a larger Ion spec that is
 -- already active).  See 'startTimer' and 'endTimer' to actually activate this
 -- timer.
---timer :: Def ('[] :-> ()) -- ^ Timer expiration function
---         -> ProcSeq (Ion ())
+timer :: (Num t, a ~ 'Stored t, IvoryInit t, IvoryArea a, IvoryZero a) =>
+         Proxy a -- ^ Proxy to resolve timer type
+         -> Def ('[] ':-> ()) -- ^ Timer expiration procedure
+         -> ProcSeq (Ion (Ref Global a))
+timer _ expFn = do
+  name <- newName
+  let ion' = ion name $ do
+        var <- area' name $ Just $ ival 0
+        return var
+  return ion'
 
 -- | All the functions below are for generating procedures to adapt a procedure
 -- of different numbers of arguments.  I am almost certain that a better way
