@@ -11,6 +11,7 @@ import           Data.Proxy ( Proxy(..) )
 import           Ivory.Language hiding ( Proxy )
 import           Ivory.Compile.C.CmdlineFrontend
 
+import           Ion
 import           ProcSeq
 
 main :: IO ()
@@ -19,9 +20,22 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      (entry, defs) = seqDef testSeq "test_procseq"
-      ionModule = package "procseq" $ defs
+      (entry, seqDef') = seqDef testSeq "test_procseq"
+      ionModule = package "procseq" $ seqDef'
   runCompiler [ionModule] [] ivoryOpts
+
+{-
+main2 :: IO ()
+main2 = do
+  let ivoryOpts = initialOpts { scErrors = False
+                              , srcLocs = True
+                              , outDir = Nothing
+                              }
+      (entry, seqDef') = seqDef testSeq "test_timer"
+      (timeFn, ionDef') = ionDef "test_ion" test
+      ionModule = package "procseq2" $ seqDef' >> ionDef'
+  runCompiler [ionModule] [] ivoryOpts
+-}
 
 -- Note the use of 'RecursiveDo' and 'mdo' to allow us to write things in a
 -- more logical sequence.
@@ -34,7 +48,28 @@ testSeq = mdo
     comment "Inside 'start'"
     call_ other
 
+  t <- timer (Proxy :: Proxy Uint16) timerCb
+
   other <- newProcP (Proxy :: Proxy (Def ('[] ':-> ()))) $ body $ do
     comment "Inside 'other'"
+    startTimer t 5000
+
+  timerCb <- newProc $ body $ do
+    comment "Timer returned"
 
   return start
+
+testTimer :: ProcSeq (Ion (Ref Global (Stored Uint16)))
+testTimer = mdo
+
+  let t' = timer (Proxy :: Proxy Uint16) timerCb
+  t <- t'
+
+  other <- newProcP (Proxy :: Proxy (Def ('[] ':-> ()))) $ body $ do
+    comment "Inside 'other'"
+    startTimer t 5000
+
+  timerCb <- newProc $ body $ do
+    comment "Timer returned"
+
+  return t
