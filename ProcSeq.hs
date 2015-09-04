@@ -111,16 +111,36 @@ newAreaP _ = newArea
 -- regular intervals (e.g. by including it in a larger Ion spec that is
 -- already active).  See 'startTimer' and 'endTimer' to actually activate this
 -- timer.
-timer :: (Num t, a ~ 'Stored t, IvoryInit t, IvoryArea a, IvoryZero a) =>
-         Proxy a -- ^ Proxy to resolve timer type
+timer :: (a ~ 'Stored t, Num t, IvoryStore t, IvoryInit t, IvoryEq t,
+          IvoryOrd t, IvoryArea a, IvoryZero a) =>
+         Proxy t -- ^ Proxy to resolve timer type
          -> Def ('[] ':-> ()) -- ^ Timer expiration procedure
-         -> ProcSeq (Ion (Ref Global a))
+         -> ProcSeq (Ion (Ref Global (Stored t)))
 timer _ expFn = do
   name <- newName
-  let ion' = ion name $ do
-        var <- area' name $ Just $ ival 0
-        return var
-  return ion'
+  return $ ion name $ do
+    var <- area' name $ Just $ ival 0
+    
+    ion "decr" $ ivoryEff $ do
+      val <- deref var
+      ifte_ (val ==? 0) (return ()) -- Do nothing if already 0
+      -- Otherwise, decrement
+        $ do let val' = val - 1
+             store var (val')
+             -- If it transitions to 0, then call the expiration proc
+             ifte_ (val' >? 0) (return ()) $ call_ expFn
+
+    return var
+
+-- | Begin counting a timer down by the given number of ticks.
+startTimer :: (Num t, IvoryStore t, IvoryZeroVal t) =>
+              Ion (Ref Global (Stored t)) -- ^ Timer from 'timer'
+              -> Integer -- ^ Countdown time
+              -> Ivory eff ()
+startTimer ref n = store (ionRef ref) $ fromInteger n
+
+-- | Stop a timer from running.
+stopTimer ref = startTimer ref 0
 
 -- | All the functions below are for generating procedures to adapt a procedure
 -- of different numbers of arguments.  I am almost certain that a better way
