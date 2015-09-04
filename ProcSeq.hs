@@ -20,12 +20,24 @@ continuation - and I'd like to avoid having to write this manually for every
 case and repeat the number of expected bytes.  How would I represent this?
 
 -}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
+
 module ProcSeq ( ProcSeq
                , seqDef
                , newProc
                , newProcP
                , newArea
                , newAreaP
+               , adapt_0_1
+               , adapt_1_0
+               , adapt_0_2
+               , adapt_2_0
+               , adapt_0_3
+               , adapt_3_0
+               , adapt_0_4
+               , adapt_4_0
+               , adapt_0_5
                ) where
 
 import           Control.Applicative ( Const )
@@ -90,3 +102,55 @@ newArea init = do
 newAreaP :: (IvoryArea area, IvoryZero area) =>
             Proxy area -> Maybe (Init area) -> ProcSeq (MemArea area)
 newAreaP _ = newArea
+
+-- | Create a timer resource.  The returned 'Ion' still must be called at
+-- regular intervals (e.g. by including it in a larger Ion spec that is
+-- already active).  See 'startTimer' and 'endTimer' to actually activate this
+-- timer.
+--timer :: Def ('[] :-> ()) -- ^ Timer expiration function
+--         -> ProcSeq (Ion ())
+
+-- | All the functions below are for generating procedures to adapt a procedure
+-- of different numbers of arguments.  I am almost certain that a better way
+-- exists than what I did below - probably using typeclasses and mimicking
+-- what Ivory did to define the functions.
+adapt_0_1 :: (IvoryType a, IvoryVar a) =>
+             Def ('[] ':-> ()) -> ProcSeq (Def ('[a] ':-> ()))
+adapt_0_1 fn0 = newProc $ \_ -> body $ call_ fn0
+
+adapt_1_0 :: (Num a, IvoryType a, IvoryVar a) =>
+             Def ('[a] ':-> ()) -> ProcSeq (Def ('[] ':-> ()))
+adapt_1_0 fn0 = newProc $ body $ call_ fn0 0
+
+adapt_0_2 :: (IvoryType a, IvoryVar a, IvoryType b, IvoryVar b) =>
+             Def ('[] ':-> ()) -> ProcSeq (Def ('[a,b] ':-> ()))
+adapt_0_2 fn0 = newProc $ \_ _ -> body $ call_ fn0
+
+adapt_2_0 :: (Num a, IvoryType a, IvoryVar a, Num b, IvoryType b, IvoryVar b) =>
+             Def ('[a, b] ':-> ()) -> ProcSeq (Def ('[] ':-> ()))
+adapt_2_0 fn0 = newProc $ body $ call_ fn0 0 0
+
+adapt_0_3 :: (IvoryType a, IvoryVar a, IvoryType b, IvoryVar b, IvoryType c,
+              IvoryVar c) =>
+             Def ('[] ':-> ()) -> ProcSeq (Def ('[a,b,c] ':-> ()))
+adapt_0_3 fn0 = newProc $ \_ _ _ -> body $ call_ fn0
+
+adapt_3_0 :: (Num a, IvoryType a, IvoryVar a, Num b, IvoryType b, IvoryVar b,
+              Num c, IvoryType c, IvoryVar c) =>
+             Def ('[a, b, c] ':-> ()) -> ProcSeq (Def ('[] ':-> ()))
+adapt_3_0 fn0 = newProc $ body $ call_ fn0 0 0 0
+
+adapt_0_4 :: (IvoryType a, IvoryVar a, IvoryType b, IvoryVar b, IvoryType c,
+              IvoryVar c, IvoryType d, IvoryVar d) =>
+             Def ('[] ':-> ()) -> ProcSeq (Def ('[a,b,c,d] ':-> ()))
+adapt_0_4 fn0 = newProc $ \_ _ _ _ -> body $ call_ fn0
+
+adapt_4_0 :: (Num a, IvoryType a, IvoryVar a, Num b, IvoryType b, IvoryVar b,
+              Num c, IvoryType c, IvoryVar c, Num d, IvoryType d, IvoryVar d) =>
+             Def ('[a, b, c, d] ':-> ()) -> ProcSeq (Def ('[] ':-> ()))
+adapt_4_0 fn0 = newProc $ body $ call_ fn0 0 0 0 0
+
+adapt_0_5 :: (IvoryType a, IvoryVar a, IvoryType b, IvoryVar b, IvoryType c,
+              IvoryVar c, IvoryType d, IvoryVar d, IvoryType e, IvoryVar e) =>
+             Def ('[] ':-> ()) -> ProcSeq (Def ('[a,b,c,d,e] ':-> ()))
+adapt_0_5 fn0 = newProc $ \_ _ _ _ _ -> body $ call_ fn0
