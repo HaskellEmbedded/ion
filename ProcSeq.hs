@@ -71,7 +71,7 @@ import           Ion
 
 -- | This type assists with bundling together sequences of call and state,
 -- while creating unique names so that multiple instances do not conflict.
-type ProcSeq t = State SeqState t
+type ProcSeq t = StateT SeqState Ion t
 
 -- | State that is passed along in a 'ProcSeq' which accumulates 'ModuleDef'
 -- and increments numbers to generate unique names
@@ -84,7 +84,7 @@ data SeqState = SeqState { seqId :: String -- ^ Unique (per instance) ID
 -- given a unique string for an ID.
 seqDef :: ProcSeq (Def proc) -> String -> (Def proc, ModuleDef)
 seqDef s id = (fn, seqDefs st)
-  where (fn, st) = runState s init
+  where (fn, st) = ionVal $ runStateT s init
         init = SeqState { seqId = id, seqNum = 0, seqDefs = return () }
 
 -- | Retrieve a name that will be unique for this instance.

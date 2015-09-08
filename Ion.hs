@@ -77,6 +77,9 @@ instance Monad Ion where
 
   return a = Ion { ionNodes = [], ionVal = a, ionDefs = return () }
 
+instance MonadFix Ion where
+  mfix f = let a = f (ionVal a) in a
+
 -- | A node representing some context in the schedule, and the actions this
 -- node includes.  'ionAction' (except for 'IvoryEff' and 'NoAction') applies
 -- not just to the current node, but to any child nodes too.  In general,
