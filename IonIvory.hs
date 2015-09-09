@@ -7,8 +7,14 @@ This contains functionality for converting the 'Ion' type to Ivory constructs.
 
 Known issues:
 
-   * You must depend on the Ivory module that makes use of the definitions
-from 'ionDef' if you want to reference a variable declared with 'area''.
+   * One must depend on the Ivory module that makes use of the
+definitions from 'ionDef' in order to reference a variable declared
+with 'area''.
+   * It can be really inefficient to require a separate counter for
+every distinct phase within a period.  Why not reuse variables here
+when it's within the same period, and rather than starting at the
+phase, counting down, and checking for zero, instead starting just one
+variable at 0, counting up, checking for each individual phase?
 
 -}
 

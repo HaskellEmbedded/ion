@@ -34,6 +34,13 @@ simplify and clarify the code.
 monad; I should implement this.
    * There is *still* a problem with phase and period 'leaking' between
 consecutive actions in the monad!
+   * Consider the case where you put a condition on a node, and that node
+has many sub-nodes across various delays.  Now, suppose that that condition
+becomes false somewhere in the middle of those delays.  Is the entire node
+blocked from taking effect, or does it partially take effect?  When is the
+condition considered as being evaluated?  Right now it is evaluated at every
+single sub-node that inherits it.  I consider this to be a violation of how
+Ion should operate - synchronously and atomically.
 
 -}
 {-# LANGUAGE DataKinds #-}
@@ -229,7 +236,7 @@ ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
 -- | A scheduled action.  Phase and period here are absolute, and there are no
 -- child nodes.
 data Schedule =
-  Schedule { schedId :: Integer -- ^ A unique ID for this -- action
+  Schedule { schedId :: Integer -- ^ A unique ID for this action
            , schedName :: String -- ^ Name (without any disambiguation applied)
            , schedPath :: [String] -- ^ A list of names giving the trail that
              -- produced this schedule
