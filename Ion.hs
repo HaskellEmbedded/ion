@@ -46,6 +46,7 @@ Ion should operate - synchronously and atomically.
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Ion where
 
@@ -58,6 +59,9 @@ import           Data.Typeable
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
+import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
+                                       IvoryProcDef )
+
 
 import           IonUtil
 
@@ -203,9 +207,9 @@ area' name init = lift $ Ion { ionNodes = []
 
 -- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (for instance, to
 -- access the variable from other Ivory code).
-ionRef :: (IL.IvoryArea area, IL.IvoryZero area) =>
-          Ion (IL.Ref IL.Global area) -> IL.Ref IL.Global area
-ionRef = ionVal
+--ionRef :: (IL.IvoryArea area, IL.IvoryZero area) =>
+--          IonSeq (IL.Ref IL.Global area) -> IL.Ref IL.Global area
+--ionRef = ionVal
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
@@ -340,3 +344,99 @@ data IonException = InvalidCName [String] String Int -- ^ Path, C name, and
     deriving (Show, Typeable)
 
 instance Exception IonException
+
+
+-- * Moved from ProcSeq
+
+-- | Return the procedure for a 'IonSeq' and the acculumated 'ModuleDef',
+-- given a unique string for an ID.
+seqDef :: IonSeq (Def proc) -> String -> (Def proc, IL.ModuleDef)
+seqDef s id = (fn, seqDefs st)
+  where (fn, st) = ionVal $ runStateT s init
+        init = SeqState { seqId = id, seqNum = 0, seqDefs = return () }
+
+-- | Retrieve a name that will be unique for this instance.
+newName :: IonSeq String
+newName = do
+  state <- get
+  let num' = seqNum state
+  put state { seqNum = num' + 1 }
+  return $ seqId state ++ "_" ++ show num'
+
+-- | Like Ivory 'proc', but leaving out the first argument (it derives the
+-- name from 'IonSeq').
+newProc :: (IvoryProcDef proc impl) => impl -> IonSeq (Def proc)
+newProc impl = do
+  name <- newName
+  let fn = IL.proc name impl
+  modify (\s -> s { seqDefs = seqDefs s >> IL.incl fn })
+  return fn
+
+-- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type
+newProcP :: (IvoryProcDef proc impl) =>
+            Proxy (Def proc) -> impl -> IonSeq (Def proc)
+newProcP _ = newProc
+
+-- | Like Ivory 'area', but leaving out the first argument (it derives the
+-- name from 'IonSeq').
+newArea :: (IL.IvoryArea area, IL.IvoryZero area) =>
+           Maybe (IL.Init area) -> IonSeq (IL.MemArea area)
+newArea init = do
+  name <- newName
+  let a = IL.area name init
+  modify (\s -> s { seqDefs = seqDefs s >> IL.defMemArea a })
+  return a
+
+-- | 'newArea' with an initial 'Proxy' to disambiguate the area type
+newAreaP :: (IL.IvoryArea area, IL.IvoryZero area) =>
+            Proxy area -> Maybe (IL.Init area) -> IonSeq (IL.MemArea area)
+newAreaP _ = newArea
+
+
+-- | All the functions below are for generating procedures to adapt a procedure
+-- of different numbers of arguments.  I am almost certain that a better way
+-- exists than what I did below - probably using typeclasses and mimicking
+-- what Ivory did to define the functions.
+adapt_0_1 :: (IL.IvoryType a, IL.IvoryVar a) =>
+             Def ('[] ':-> ()) -> IonSeq (Def ('[a] ':-> ()))
+adapt_0_1 fn0 = newProc $ \_ -> IL.body $ IL.call_ fn0
+
+adapt_1_0 :: (Num a, IL.IvoryType a, IL.IvoryVar a) =>
+             Def ('[a] ':-> ()) -> IonSeq (Def ('[] ':-> ()))
+adapt_1_0 fn0 = newProc $ IL.body $ IL.call_ fn0 0
+
+adapt_0_2 :: (IL.IvoryType a, IL.IvoryVar a, IL.IvoryType b, IL.IvoryVar b) =>
+             Def ('[] ':-> ()) -> IonSeq (Def ('[a,b] ':-> ()))
+adapt_0_2 fn0 = newProc $ \_ _ -> IL.body $ IL.call_ fn0
+
+adapt_2_0 :: (Num a, IL.IvoryType a, IL.IvoryVar a, Num b, IL.IvoryType b,
+              IL.IvoryVar b) =>
+             Def ('[a, b] ':-> ()) -> IonSeq (Def ('[] ':-> ()))
+adapt_2_0 fn0 = newProc $ IL.body $ IL.call_ fn0 0 0
+
+adapt_0_3 :: (IL.IvoryType a, IL.IvoryVar a, IL.IvoryType b, IL.IvoryVar b,
+              IL.IvoryType c, IL.IvoryVar c) =>
+             Def ('[] ':-> ()) -> IonSeq (Def ('[a,b,c] ':-> ()))
+adapt_0_3 fn0 = newProc $ \_ _ _ -> IL.body $ IL.call_ fn0
+
+adapt_3_0 :: (Num a, IL.IvoryType a, IL.IvoryVar a, Num b, IL.IvoryType b,
+              IL.IvoryVar b, Num c, IL.IvoryType c, IL.IvoryVar c) =>
+             Def ('[a, b, c] ':-> ()) -> IonSeq (Def ('[] ':-> ()))
+adapt_3_0 fn0 = newProc $ IL.body $ IL.call_ fn0 0 0 0
+
+adapt_0_4 :: (IL.IvoryType a, IL.IvoryVar a, IL.IvoryType b, IL.IvoryVar b,
+              IL.IvoryType c, IL.IvoryVar c, IL.IvoryType d, IL.IvoryVar d) =>
+             Def ('[] ':-> ()) -> IonSeq (Def ('[a,b,c,d] ':-> ()))
+adapt_0_4 fn0 = newProc $ \_ _ _ _ -> IL.body $ IL.call_ fn0
+
+adapt_4_0 :: (Num a, IL.IvoryType a, IL.IvoryVar a, Num b, IL.IvoryType b,
+              IL.IvoryVar b, Num c, IL.IvoryType c, IL.IvoryVar c, Num d,
+              IL.IvoryType d, IL.IvoryVar d) =>
+             Def ('[a, b, c, d] ':-> ()) -> IonSeq (Def ('[] ':-> ()))
+adapt_4_0 fn0 = newProc $ IL.body $ IL.call_ fn0 0 0 0 0
+
+adapt_0_5 :: (IL.IvoryType a, IL.IvoryVar a, IL.IvoryType b, IL.IvoryVar b,
+              IL.IvoryType c, IL.IvoryVar c, IL.IvoryType d, IL.IvoryVar d,
+              IL.IvoryType e, IL.IvoryVar e) =>
+             Def ('[] ':-> ()) -> IonSeq (Def ('[a,b,c,d,e] ':-> ()))
+adapt_0_5 fn0 = newProc $ \_ _ _ _ _ -> IL.body $ IL.call_ fn0
