@@ -17,11 +17,11 @@ phase, counting down, and checking for zero, instead starting just one
 variable at 0, counting up, checking for each individual phase?
 
 -}
-
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+
 module IonIvory where
 
 import           Control.Exception
@@ -37,13 +37,24 @@ import qualified Ivory.Language.Syntax.Type as Ty
 import           Ion
 import           IonUtil
 
--- | Generate an Ivory schedule procedure and needed 'ModuleDef' from the given
--- Ion spec.
+-- | Concrete exports from an 'Ion' or 'IonSeq'
+data IonExports a = IonExports
+                    { ionEntry :: Def ('[] ':-> ())
+                    , ionModule :: ModuleDef
+                    , ionValue :: a
+                    }
+-- FIXME: Figure out why I must have 'ModuleDef' and a value twice.
+-- I'm basically just exporting an 'Ion' (but one that semantically is
+-- different) plus an entry procedure.
+
+-- | Produce exports from the given 'IonSeq' specs.
 ionDef :: String -- ^ Name for schedule function
           -> IonSeq a -- ^ Ion specification
-          -> (Def ('[] ':-> ()), ModuleDef) -- ^ (schedule entry procedure,
-          -- module definitions)
-ionDef name s = (entryProc, mod)
+          -> IonExports a
+ionDef name s = IonExports { ionEntry = entryProc
+                           , ionModule = mod
+                           , ionValue = fst $ ionVal i0
+                           }
   where init = SeqState { seqId = name, seqNum = 0 }
         -- FIXME: 'init' should probably not be hard-coded.
         -- i0 :: Ion (a, SeqState)

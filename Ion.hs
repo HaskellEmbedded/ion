@@ -101,17 +101,7 @@ data Ion a = Ion { ionNodes :: [IonNode] -- ^ An accumulation of nodes; the
                  , ionDefs :: IL.ModuleDef -- ^ 'ModuleDef' for anything that
                    -- needs to be declared for Ivory
                  , ionVal :: a
-                 }-- deriving (Show)
-
--- | This type assists with bundling together sequences of call and state,
--- while creating unique names so that multiple instances do not conflict.
-type IonSeq t = StateT SeqState Ion t
-
--- | State that is passed along in a 'ProcSeq' which accumulates 'ModuleDef'
--- and increments numbers to generate unique names
-data SeqState = SeqState { seqId :: String -- ^ Unique (per instance) ID
-                         , seqNum :: Int -- ^ Next unused number
-                         } deriving (Show)
+                 }
 
 instance Functor Ion where
   fmap f ion = ion { ionVal = f $ ionVal ion }
@@ -128,10 +118,18 @@ instance Monad Ion where
 
   return a = Ion { ionNodes = [], ionVal = a, ionDefs = return () }
 
+-- 'StateT' is automatically in MonadFix, provided that 'Ion' is:
 instance MonadFix Ion where
   mfix f = let a = f (ionVal a) in a
 
--- | A Node representing some context in the schedule, and the actions this
+-- | This wraps 'Ion' with the ability to create unique C identifier names.
+type IonSeq t = StateT SeqState Ion t
+
+data SeqState = SeqState { seqId :: String -- ^ Unique ID (used as base name)
+                         , seqNum :: Int -- ^ Next unused number
+                         } deriving (Show)
+
+-- | A node representing some context in the schedule, and the actions this
 -- node includes.  'ionAction' (except for 'IvoryEff' and 'NoAction') applies
 -- not just to the current node, but to any child nodes too.  In general,
 -- if two actions conflict (e.g. two 'SetPhase' actions with absolute phase),
@@ -209,21 +207,25 @@ ion :: String -- ^ Name
        -> IonSeq a
 ion = makeSubFromAction . SetName
 
--- | Same as 'area'', but with an initial 'IL.Proxy' to specify the type in
--- cases where nothing else has specified it, and external type signatures are
--- too annoying.
-areaP' :: (IL.IvoryArea area, IL.IvoryZero area) =>
-         IL.Proxy area -- ^ Proxy (to disambiguate type)
-         -> String -- ^ Name of variable
-         -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
-         -> IonSeq (IL.Ref IL.Global area)
-areaP' _ = area'
+-- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (for instance, to
+-- access the variable from other Ivory code).
+ionRef :: (IL.IvoryArea area, IL.IvoryZero area) =>
+          Ion (IL.Ref IL.Global area) -> IL.Ref IL.Global area
+ionRef = ionVal
+
+-- | Retrieve a name that will be unique for this instance.
+newName :: IonSeq String
+newName = do state <- get
+             let num' = seqNum state
+             put state { seqNum = num' + 1 }
+             return $ seqId state ++ "_" ++ show num'
 
 -- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
--- If the initial value fails to specify the type of this, then an external
--- signature may be needed (or instead 'areaP'').  If access to this variable
--- is needed outside of the 'Ion' monad, retrieve the reference from an 'Ion'
--- with the 'ionRef' function.
+-- If the initial value fails to specify the type of this, then an
+-- external signature may be needed (or instead 'areaP'').  If access
+-- to this variable is needed outside of the 'Ion' monad, retrieve the
+-- reference from an 'Ion' with the 'ionRef' function.
+-- The 'ModuleDef' for this will be generated automatically.
 area' :: (IL.IvoryArea area, IL.IvoryZero area) =>
          String -- ^ Name of variable
          -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
@@ -234,11 +236,42 @@ area' name init = lift $ Ion { ionNodes = []
                              }
   where mem = IL.area name init
 
--- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (for instance, to
--- access the variable from other Ivory code).
---ionRef :: (IL.IvoryArea area, IL.IvoryZero area) =>
---          IonSeq (IL.Ref IL.Global area) -> IL.Ref IL.Global area
---ionRef = ionVal
+-- | Same as 'area'', but with an initial 'IL.Proxy' to disambiguate
+-- the area type.
+areaP' :: (IL.IvoryArea area, IL.IvoryZero area) =>
+         IL.Proxy area -- ^ Proxy (to disambiguate type)
+         -> String -- ^ Name of variable
+         -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
+         -> IonSeq (IL.Ref IL.Global area)
+areaP' _ = area'
+
+-- | This is 'area'', but using 'IonSeq' to create a unique name.
+-- (The purpose for this is to help with composing an 'IonSeq' or
+-- instantiating one multiple times.)
+newArea :: (IL.IvoryArea area, IL.IvoryZero area) =>
+           Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
+newArea init = mkArea =<< newName
+  where mkArea name = area' name init
+
+-- | This is 'areaP'', but using 'IonSeq' to create a unique name.
+newAreaP :: (IL.IvoryArea area, IL.IvoryZero area) =>
+            Proxy area -> Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
+newAreaP _ = newArea
+
+-- | This is like Ivory 'proc', but using 'IonSeq' to give the
+-- procedure a unique name.
+newProc :: (IvoryProcDef proc impl) => impl -> IonSeq (Def proc)
+newProc impl = mkProc =<< newName
+  where mkProc name = lift $ Ion { ionNodes = []
+                                 , ionDefs = IL.incl $ fn name
+                                 , ionVal = fn name
+                                 }
+        fn name = IL.proc name impl
+
+-- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type
+newProcP :: (IvoryProcDef proc impl) =>
+            Proxy (Def proc) -> impl -> IonSeq (Def proc)
+newProcP _ = newProc
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
@@ -249,6 +282,8 @@ phase :: Integral i =>
 phase = makeSubFromAction . SetPhase Absolute Min . toInteger
 -- FIXME: This needs to comprehend the different phase types.
 
+-- | Specify a relative phase (i.e. a delay past the last phase), returning
+-- the parent.  (The sub-node may readily override this phase.)
 delay :: Integral i =>
          i -- ^ Relative phase
          -> IonSeq a -- ^ Sub-node
@@ -384,41 +419,6 @@ seqDef s id = (fn, ionDefs s2)
   where s2 = runStateT s init
         (fn, _) = ionVal s2
         init = SeqState { seqId = id, seqNum = 0 }
-
--- | Retrieve a name that will be unique for this instance.
-newName :: IonSeq String
-newName = do
-  state <- get
-  let num' = seqNum state
-  put state { seqNum = num' + 1 }
-  return $ seqId state ++ "_" ++ show num'
-
--- | Like Ivory 'proc', but leaving out the first argument (it derives the
--- name from 'IonSeq').
-newProc :: (IvoryProcDef proc impl) => impl -> IonSeq (Def proc)
-newProc impl = mkProc =<< newName
-  where mkProc name = lift $ Ion { ionNodes = []
-                                 , ionDefs = IL.incl $ fn name
-                                 , ionVal = fn name
-                                 }
-        fn name = IL.proc name impl
-
--- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type
-newProcP :: (IvoryProcDef proc impl) =>
-            Proxy (Def proc) -> impl -> IonSeq (Def proc)
-newProcP _ = newProc
-
--- | Like Ivory 'area', but leaving out the first argument (it derives the
--- name from 'IonSeq').
-newArea :: (IL.IvoryArea area, IL.IvoryZero area) =>
-           Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
-newArea init = mkArea =<< newName
-  where mkArea name = area' name init
-
--- | 'newArea' with an initial 'Proxy' to disambiguate the area type
-newAreaP :: (IL.IvoryArea area, IL.IvoryZero area) =>
-            Proxy area -> Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
-newAreaP _ = newArea
 
 -- | All the functions below are for generating procedures to adapt a procedure
 -- of different numbers of arguments.  I am almost certain that a better way

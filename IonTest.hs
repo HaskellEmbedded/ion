@@ -20,10 +20,10 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      (entry, ionDef') = ionDef "test_ion" test
-      ionModule = package "ion" $ ionDef'
+      exps = ionDef "test_ion" test
+      mod = package "ion" $ ionModule exps
   catch
-    (runCompiler [ionModule] [] ivoryOpts)
+    (runCompiler [mod] [] ivoryOpts)
     $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
 
 baz :: IonSeq ()
