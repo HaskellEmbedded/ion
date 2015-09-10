@@ -44,12 +44,11 @@ ionDef :: String -- ^ Name for schedule function
           -> (Def ('[] ':-> ()), ModuleDef) -- ^ (schedule entry procedure,
           -- module definitions)
 ionDef name s = (entryProc, mod)
-  where init = SeqState { seqId = name, seqNum = 0, seqDefs = return () }
+  where init = SeqState { seqId = name, seqNum = 0 }
+        -- FIXME: 'init' should probably not be hard-coded.
         -- i0 :: Ion (a, SeqState)
         i0 = runStateT s init
-        (_, seqSt) = ionVal i0
         mod = do ionDefs i0
-                 seqDefs seqSt
                  incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes

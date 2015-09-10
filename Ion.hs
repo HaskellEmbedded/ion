@@ -81,8 +81,7 @@ type IonSeq t = StateT SeqState Ion t
 -- and increments numbers to generate unique names
 data SeqState = SeqState { seqId :: String -- ^ Unique (per instance) ID
                          , seqNum :: Int -- ^ Next unused number
-                         , seqDefs :: IL.ModuleDef
-                         }
+                         } deriving (Show)
 
 instance Functor Ion where
   fmap f ion = ion { ionVal = f $ ionVal ion }
@@ -351,9 +350,10 @@ instance Exception IonException
 -- | Return the procedure for a 'IonSeq' and the acculumated 'ModuleDef',
 -- given a unique string for an ID.
 seqDef :: IonSeq (Def proc) -> String -> (Def proc, IL.ModuleDef)
-seqDef s id = (fn, seqDefs st)
-  where (fn, st) = ionVal $ runStateT s init
-        init = SeqState { seqId = id, seqNum = 0, seqDefs = return () }
+seqDef s id = (fn, ionDefs s2)
+  where s2 = runStateT s init
+        (fn, _) = ionVal s2
+        init = SeqState { seqId = id, seqNum = 0 }
 
 -- | Retrieve a name that will be unique for this instance.
 newName :: IonSeq String
@@ -366,11 +366,12 @@ newName = do
 -- | Like Ivory 'proc', but leaving out the first argument (it derives the
 -- name from 'IonSeq').
 newProc :: (IvoryProcDef proc impl) => impl -> IonSeq (Def proc)
-newProc impl = do
-  name <- newName
-  let fn = IL.proc name impl
-  modify (\s -> s { seqDefs = seqDefs s >> IL.incl fn })
-  return fn
+newProc impl = mkProc =<< newName
+  where mkProc name = lift $ Ion { ionNodes = []
+                                 , ionDefs = IL.incl $ fn name
+                                 , ionVal = fn name
+                                 }
+        fn name = IL.proc name impl
 
 -- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type
 newProcP :: (IvoryProcDef proc impl) =>
@@ -380,18 +381,14 @@ newProcP _ = newProc
 -- | Like Ivory 'area', but leaving out the first argument (it derives the
 -- name from 'IonSeq').
 newArea :: (IL.IvoryArea area, IL.IvoryZero area) =>
-           Maybe (IL.Init area) -> IonSeq (IL.MemArea area)
-newArea init = do
-  name <- newName
-  let a = IL.area name init
-  modify (\s -> s { seqDefs = seqDefs s >> IL.defMemArea a })
-  return a
+           Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
+newArea init = mkArea =<< newName
+  where mkArea name = area' name init
 
 -- | 'newArea' with an initial 'Proxy' to disambiguate the area type
 newAreaP :: (IL.IvoryArea area, IL.IvoryZero area) =>
-            Proxy area -> Maybe (IL.Init area) -> IonSeq (IL.MemArea area)
+            Proxy area -> Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
 newAreaP _ = newArea
-
 
 -- | All the functions below are for generating procedures to adapt a procedure
 -- of different numbers of arguments.  I am almost certain that a better way
