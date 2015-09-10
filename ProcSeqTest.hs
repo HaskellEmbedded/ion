@@ -72,4 +72,7 @@ testTimer = mdo
   timerCb <- newProc $ body $ do
     comment "Timer returned"
 
+  ion_ "disabled" $ period 60000 $ do
+    ivoryEff $ comment "Inside ProcSeq"
+
   return t

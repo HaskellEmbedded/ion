@@ -20,8 +20,8 @@ library
                      , IonIvory
                      , IonTest
                      , IonUtil
-                     , ProcSeq
-                     , ProcSeqTest
+                     --, ProcSeq
+                     --, ProcSeqTest
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base

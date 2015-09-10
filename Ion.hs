@@ -69,6 +69,17 @@ data Ion a = Ion { ionNodes :: [IonNode] -- ^ An accumulation of nodes; the
                  , ionVal :: a
                  }-- deriving (Show)
 
+-- | This type assists with bundling together sequences of call and state,
+-- while creating unique names so that multiple instances do not conflict.
+type IonSeq t = StateT SeqState Ion t
+
+-- | State that is passed along in a 'ProcSeq' which accumulates 'ModuleDef'
+-- and increments numbers to generate unique names
+data SeqState = SeqState { seqId :: String -- ^ Unique (per instance) ID
+                         , seqNum :: Int -- ^ Next unused number
+                         , seqDefs :: IL.ModuleDef
+                         }
+
 instance Functor Ion where
   fmap f ion = ion { ionVal = f $ ionVal ion }
 
@@ -87,7 +98,7 @@ instance Monad Ion where
 instance MonadFix Ion where
   mfix f = let a = f (ionVal a) in a
 
--- | A node representing some context in the schedule, and the actions this
+-- | A Node representing some context in the schedule, and the actions this
 -- node includes.  'ionAction' (except for 'IvoryEff' and 'NoAction') applies
 -- not just to the current node, but to any child nodes too.  In general,
 -- if two actions conflict (e.g. two 'SetPhase' actions with absolute phase),
@@ -154,13 +165,15 @@ makeSub fn ion0 = ion0
 
 -- | Given an 'IonAction' to apply, and a child 'Ion', return the parent 'Ion'
 -- containing this node with that action.
-makeSubFromAction :: IonAction -> Ion a -> Ion a
-makeSubFromAction act = makeSub (\i -> i { ionAction = act })
+makeSubFromAction :: IonAction -> IonSeq a -> IonSeq a
+makeSubFromAction act s0 = do
+  g <- get
+  lift $ makeSub (\i -> i { ionAction = act }) $ evalStateT s0 g
 
 -- | Specify a name of a sub-node, returning the parent.
 ion :: String -- ^ Name
-       -> Ion a -- ^ Sub-node
-       -> Ion a
+       -> IonSeq a -- ^ Sub-node
+       -> IonSeq a
 ion = makeSubFromAction . SetName
 
 -- | Same as 'area'', but with an initial 'IL.Proxy' to specify the type in
@@ -170,7 +183,7 @@ areaP' :: (IL.IvoryArea area, IL.IvoryZero area) =>
          IL.Proxy area -- ^ Proxy (to disambiguate type)
          -> String -- ^ Name of variable
          -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
-         -> Ion (IL.Ref IL.Global area)
+         -> IonSeq (IL.Ref IL.Global area)
 areaP' _ = area'
 
 -- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
@@ -181,11 +194,11 @@ areaP' _ = area'
 area' :: (IL.IvoryArea area, IL.IvoryZero area) =>
          String -- ^ Name of variable
          -> Maybe (IL.Init area) -- ^ Initial value (or 'Nothing')
-         -> Ion (IL.Ref IL.Global area)
-area' name init = Ion { ionNodes = []
-                      , ionDefs = IL.defMemArea mem
-                      , ionVal = IL.addrOf mem
-                      }
+         -> IonSeq (IL.Ref IL.Global area)
+area' name init = lift $ Ion { ionNodes = []
+                             , ionDefs = IL.defMemArea mem
+                             , ionVal = IL.addrOf mem
+                             }
   where mem = IL.area name init
 
 -- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (for instance, to
@@ -198,37 +211,39 @@ ionRef = ionVal
 -- readily override this phase.)
 phase :: Integral i =>
          i -- ^ Phase
-         -> Ion a -- ^ Sub-node
-         -> Ion a
+         -> IonSeq a -- ^ Sub-node
+         -> IonSeq a
 phase = makeSubFromAction . SetPhase Absolute Min . toInteger
 -- FIXME: This needs to comprehend the different phase types.
 
 delay :: Integral i =>
          i -- ^ Relative phase
-         -> Ion a -- ^ Sub-node
-         -> Ion a
+         -> IonSeq a -- ^ Sub-node
+         -> IonSeq a
 delay = makeSubFromAction . SetPhase Relative Min . toInteger
 
 -- | Specify a period for a sub-node, returning the parent. (The sub-node may
 -- readily override this period.)
 period :: Integral i =>
           i -- ^ Period
-          -> Ion a -- ^ Sub-node
-          -> Ion a
+          -> IonSeq a -- ^ Sub-node
+          -> IonSeq a
 period = makeSubFromAction . SetPeriod . toInteger
 
 -- | Combinator which simply ignores the node.  This is intended to mask off
 -- some part of a spec.
-disable :: Ion a -> Ion a
-disable _ = Ion { ionNodes = [], ionVal = undefined, ionDefs = return () }
+disable :: IonSeq a -> IonSeq a
+disable _ = lift $
+            Ion { ionNodes = [], ionVal = undefined, ionDefs = return () }
 
 -- | Combinator to attach a condition to a sub-node
-cond :: IvoryAction IL.IBool -> Ion a -> Ion a
+cond :: IvoryAction IL.IBool -> IonSeq a -> IonSeq a
 cond = makeSubFromAction . AddCondition
 
 -- | Turn an Ivory effect into an 'Ion'.
-ivoryEff :: IvoryAction () -> Ion ()
-ivoryEff iv = Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
+ivoryEff :: IvoryAction () -> IonSeq ()
+ivoryEff iv = lift $
+              Ion { ionNodes = [defaultNode { ionAction = IvoryEff iv }]
                   , ionVal = ()
                   , ionDefs = return ()
                   }

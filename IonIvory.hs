@@ -25,6 +25,7 @@ variable at 0, counting up, checking for each individual phase?
 module IonIvory where
 
 import           Control.Exception
+import           Control.Monad.State hiding ( forever )
 
 import           Ivory.Language
 import           Ivory.Language.MemArea ( memSym )
@@ -39,11 +40,13 @@ import           IonUtil
 -- | Generate an Ivory schedule procedure and needed 'ModuleDef' from the given
 -- Ion spec.
 ionDef :: String -- ^ Name for schedule function
-          -> Ion a -- ^ Ion specification
+          -> IonSeq a -- ^ Ion specification
           -> (Def ('[] ':-> ()), ModuleDef) -- ^ (schedule entry procedure,
           -- module definitions)
-ionDef name i0 = (entryProc, mod)
-  where mod = do ionDefs i0
+ionDef name s = (entryProc, mod)
+  where init = SeqState { seqId = name, seqNum = 0, seqDefs = return () }
+        i0 = runStateT s init
+        mod = do ionDefs i0
                  incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes

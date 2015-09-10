@@ -26,16 +26,16 @@ main = do
     (runCompiler [ionModule] [] ivoryOpts)
     $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
 
-baz :: Ion ()
+baz :: IonSeq ()
 baz = ion "extBaz1" $ phase 10 $ do
   ivoryEff $ comment "should be phase 10"
   phase 20 $ ivoryEff $ comment "should be phase 20"
 
-baz2 :: Ion ()
+baz2 :: IonSeq ()
 baz2 = phase 10 $ ion "extBaz2" $ do
   ivoryEff $ comment "should be phase 10"
 
-delayTest :: Ion ()
+delayTest :: IonSeq ()
 delayTest = ion "delayTest" $ do
   ivoryEff $ comment "should be phase 0"
   delay 10 $ ivoryEff $ comment "delay 10 #1"
@@ -45,7 +45,7 @@ delayTest = ion "delayTest" $ do
     delay 20 $ ivoryEff $ comment "should have inherited delay"
 
 -- | Dummy spec for the sake of testing
-test :: Ion ()
+test :: IonSeq ()
 test = ion "Foo" $ do
 
   test <- areaP' (Proxy :: Proxy (Stored Uint16)) "testMem" Nothing

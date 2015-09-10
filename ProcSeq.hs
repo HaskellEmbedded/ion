@@ -13,6 +13,8 @@ I am still not entirely sure how much this belongs in Ion.
 Things to consider:
 
    * How would I represent a long non-blocking delay in this?
+   * It's still a bit cumbersome when combining together Ivory procedures of
+different types, though my 'adapt_x_y' calls help somewhat.
    * In my SPI example, I send an opcode along with a length and an expected
 length to read back.  This call is async, and the return continuation receives
 the number of bytes actually read.  I want to check this number at the return
@@ -57,6 +59,7 @@ module ProcSeq ( ProcSeq
                , adapt_0_4
                , adapt_4_0
                , adapt_0_5
+               , ion_
                ) where
 
 import           Control.Applicative ( Const )
