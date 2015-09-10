@@ -5,9 +5,14 @@ Copyright: (c) 2015 Chris Hodapp
 
 Ion is a Haskell EDSL that is inspired by another EDSL,
 <https://hackage.haskell.org/package/atom Atom>.  Ion aims to be a
-re-implementation of Atom which, rather than generating C code directly (as
-Atom does), interfaces with another very powerful, more general EDSL,
-<http://ivorylang.org/ Ivory>.
+re-implementation of Atom which, rather than generating C code
+directly (as Atom does), interfaces with another very powerful, more
+general EDSL, <http://ivorylang.org/ Ivory>.
+
+It also contains support for sequencing and bundling related
+procedures together, particularly for cases when they call each other
+in continuation-passing style or rely on asynchronous callbacks - and
+need to be composed.
 
 To-do items:
 
@@ -41,6 +46,31 @@ blocked from taking effect, or does it partially take effect?  When is the
 condition considered as being evaluated?  Right now it is evaluated at every
 single sub-node that inherits it.  I consider this to be a violation of how
 Ion should operate - synchronously and atomically.
+
+Things to consider (copied from ProcSeq):
+
+   * How would I represent a long non-blocking delay in this?
+   * It's still a bit cumbersome when combining together Ivory procedures of
+different types, though my 'adapt_x_y' calls help somewhat.
+   * In my SPI example, I send an opcode along with a length and an expected
+length to read back.  This call is async, and the return continuation receives
+the number of bytes actually read.  I want to check this number at the return
+continuation - and I'd like to avoid having to write this manually for every
+case and repeat the number of expected bytes.  How would I represent this?
+   * I still don't have a solution for making 'Ion' and 'ProcSeq' play nice
+together.  Particularly: 'ProcSeq', to use something like a timer, must get one
+of its functions embedded in an 'Ion' somehow.  This can't be passed as a C
+value, since the value would have to persist past a function's lifetime, and
+Ivory doesn't permit storing a function pointer in a global.  Second: The 'Ion'
+must be accessible outside of the 'ProcSeq' so that it can either have its code
+and its entry function generated directly, or else be embedded in some larger
+'Ion' spec which takes care of this.  Generally, this means two things must
+come out of that 'ProcSeq': an 'Ion' spec that takes care of the timer, and
+an entry function (because how else would one access any of its
+functionality?).
+   * Perhaps merging them into one monad is the thing to do here.  Would
+using 'StateT' to transform the 'Ion' monad, rather that just using 'State'
+by itself, help this?
 
 -}
 {-# LANGUAGE DataKinds #-}
@@ -437,3 +467,45 @@ adapt_0_5 :: (IL.IvoryType a, IL.IvoryVar a, IL.IvoryType b, IL.IvoryVar b,
               IL.IvoryType e, IL.IvoryVar e) =>
              Def ('[] ':-> ()) -> IonSeq (Def ('[a,b,c,d,e] ':-> ()))
 adapt_0_5 fn0 = newProc $ \_ _ _ _ _ -> IL.body $ IL.call_ fn0
+
+-- Code purgatory:
+{-
+-- | Create a timer resource.  The returned 'Ion' still must be called at
+-- regular intervals (e.g. by including it in a larger Ion spec that is
+-- already active).  See 'startTimer' and 'stopTimer' to actually activate this
+-- timer.
+timer :: (a ~ 'Stored t, Num t, IvoryStore t, IvoryInit t, IvoryEq t,
+          IvoryOrd t, IvoryArea a, IvoryZero a) =>
+         Proxy t -- ^ Proxy to resolve timer type
+         -> Def ('[] ':-> ()) -- ^ Timer expiration procedure
+         -> ProcSeq (Ion (Ref Global (Stored t)))
+timer _ expFn = do
+  name <- newName
+  return $ ion name $ do
+    var <- area' name $ Just $ ival 0
+    
+    ion "decr" $ ivoryEff $ do
+      val <- deref var
+      ifte_ (val ==? 0) (return ()) -- Do nothing if already 0
+      -- Otherwise, decrement
+        $ do let val' = val - 1
+             store var (val')
+             -- If it transitions to 0, then call the expiration proc
+             ifte_ (val' >? 0) (return ()) $ call_ expFn
+
+    return var
+
+-- | Begin counting a timer down by the given number of ticks.
+startTimer :: (Num t, IvoryStore t, IvoryZeroVal t) =>
+              Ion (Ref Global (Stored t)) -- ^ Timer from 'timer'
+              -> Integer -- ^ Countdown time
+              -> Ivory eff ()
+startTimer ref n = store (ionRef ref) $ fromInteger n
+-- FIXME: Will this even work right in usage?  Think of whether or not the
+-- variable will be in scope.  Must these be in the same module?
+
+-- | Stop a timer from running.
+stopTimer ref = startTimer ref 0
+
+
+-}

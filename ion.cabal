@@ -21,8 +21,6 @@ library
                      , IonSeqTest
                      , IonTest
                      , IonUtil
-                     --, ProcSeq
-                     --, ProcSeqTest
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base
