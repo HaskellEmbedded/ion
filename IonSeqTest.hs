@@ -47,14 +47,14 @@ testSeq = mdo
     comment "Inside 'start'"
     call_ other
 
-  --t <- timer (Proxy :: Proxy Uint16) timerCb
+  t <- timer (Proxy :: Proxy Uint16) timerCb
 
   other <- newProcP (Proxy :: Proxy (Def ('[] ':-> ()))) $ body $ do
     comment "Inside 'other'"
-    --startTimer t 5000
+    startTimer t 5000
 
-  {-timerCb <- newProc $ body $ do
-    comment "Timer returned"-}
+  timerCb <- newProc $ body $ do
+    comment "Timer returned"
 
   return start
 

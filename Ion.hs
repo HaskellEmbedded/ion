@@ -68,14 +68,12 @@ and its entry function generated directly, or else be embedded in some larger
 come out of that 'ProcSeq': an 'Ion' spec that takes care of the timer, and
 an entry function (because how else would one access any of its
 functionality?).
-   * Perhaps merging them into one monad is the thing to do here.  Would
-using 'StateT' to transform the 'Ion' monad, rather that just using 'State'
-by itself, help this?
 
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Ion where
@@ -161,14 +159,14 @@ data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
                | NoAction -- ^ Do nothing
                deriving (Show)
 
--- | Phase = Phase PhaseContext PhaseType Int deriving (Show)
-
-data PhaseContext = Absolute -- ^ Phase is relative to the first tick within a
-                    -- period
-                  | Relative -- ^ Phase is relative to the last phase used
+data PhaseContext = Absolute -- ^ Phase is relative to the first tick
+                             -- within a period
+                  | Relative -- ^ Phase is relative to the last phase
+                             -- used
                   deriving (Show)
 
-data PhaseType = Min -- ^ Minimum phase (i.e. at this phase, or any later point)
+data PhaseType = Min -- ^ Minimum phase (i.e. at this phase, or any
+                     -- later point)
                | Exact -- ^ Exactly this phase
                deriving (Show)
 
@@ -206,12 +204,6 @@ ion :: String -- ^ Name
        -> IonSeq a -- ^ Sub-node
        -> IonSeq a
 ion = makeSubFromAction . SetName
-
--- | Return the Ivory 'IL.Ref' from an 'Ion' containing one (for instance, to
--- access the variable from other Ivory code).
-ionRef :: (IL.IvoryArea area, IL.IvoryZero area) =>
-          Ion (IL.Ref IL.Global area) -> IL.Ref IL.Global area
-ionRef = ionVal
 
 -- | Retrieve a name that will be unique for this instance.
 newName :: IonSeq String
@@ -468,44 +460,40 @@ adapt_0_5 :: (IL.IvoryType a, IL.IvoryVar a, IL.IvoryType b, IL.IvoryVar b,
              Def ('[] ':-> ()) -> IonSeq (Def ('[a,b,c,d,e] ':-> ()))
 adapt_0_5 fn0 = newProc $ \_ _ _ _ _ -> IL.body $ IL.call_ fn0
 
--- Code purgatory:
-{-
 -- | Create a timer resource.  The returned 'Ion' still must be called at
 -- regular intervals (e.g. by including it in a larger Ion spec that is
 -- already active).  See 'startTimer' and 'stopTimer' to actually activate this
 -- timer.
-timer :: (a ~ 'Stored t, Num t, IvoryStore t, IvoryInit t, IvoryEq t,
-          IvoryOrd t, IvoryArea a, IvoryZero a) =>
+timer :: (a ~ 'IL.Stored t, Num t, IL.IvoryStore t, IL.IvoryInit t,
+          IL.IvoryEq t, IL.IvoryOrd t, IL.IvoryArea a, IL.IvoryZero a) =>
          Proxy t -- ^ Proxy to resolve timer type
          -> Def ('[] ':-> ()) -- ^ Timer expiration procedure
-         -> ProcSeq (Ion (Ref Global (Stored t)))
+         -> IonSeq (IL.Ref IL.Global (IL.Stored t))
 timer _ expFn = do
   name <- newName
-  return $ ion name $ do
-    var <- area' name $ Just $ ival 0
+
+  ion name $ do
+    var <- area' name $ Just $ IL.ival 0
     
     ion "decr" $ ivoryEff $ do
-      val <- deref var
-      ifte_ (val ==? 0) (return ()) -- Do nothing if already 0
+      val <- IL.deref var
+      IL.ifte_ (val IL.==? 0) (return ()) -- Do nothing if already 0
       -- Otherwise, decrement
         $ do let val' = val - 1
-             store var (val')
+             IL.store var (val')
              -- If it transitions to 0, then call the expiration proc
-             ifte_ (val' >? 0) (return ()) $ call_ expFn
+             IL.ifte_ (val' IL.>? 0) (return ()) $ IL.call_ expFn
 
     return var
 
 -- | Begin counting a timer down by the given number of ticks.
-startTimer :: (Num t, IvoryStore t, IvoryZeroVal t) =>
-              Ion (Ref Global (Stored t)) -- ^ Timer from 'timer'
+startTimer :: (Num t, IL.IvoryStore t, IL.IvoryZeroVal t) =>
+              IL.Ref IL.Global (IL.Stored t) -- ^ Timer from 'timer'
               -> Integer -- ^ Countdown time
-              -> Ivory eff ()
-startTimer ref n = store (ionRef ref) $ fromInteger n
+              -> ILM.Ivory eff ()
+startTimer ref n = IL.store ref $ fromInteger n
 -- FIXME: Will this even work right in usage?  Think of whether or not the
 -- variable will be in scope.  Must these be in the same module?
 
 -- | Stop a timer from running.
 stopTimer ref = startTimer ref 0
-
-
--}
