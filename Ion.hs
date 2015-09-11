@@ -196,8 +196,13 @@ makeSub fn ion0 = ion0
 -- containing this node with that action.
 makeSubFromAction :: IonAction -> IonSeq a -> IonSeq a
 makeSubFromAction act s0 = do
-  g <- get
-  lift $ makeSub (\i -> i { ionAction = act }) $ evalStateT s0 g
+  -- Get the current state, and transform it with the input 'IonSeq':
+  m <- runStateT s0 <$> get
+  -- Set the next state from the ending state of 'runStateT':
+  put $ snd $ ionVal m
+  -- and insert the generated 'Ion':
+  lift $ makeSub (\i -> i { ionAction = act }) $ liftM fst m
+  -- FIXME: Clean up the above and make it easier to comprehend
 
 -- | Specify a name of a sub-node, returning the parent.
 ion :: String -- ^ Name
@@ -206,11 +211,11 @@ ion :: String -- ^ Name
 ion = makeSubFromAction . SetName
 
 -- | Retrieve a name that will be unique for this instance.
-newName :: IonSeq String
-newName = do state <- get
-             let num' = seqNum state
-             put state { seqNum = num' + 1 }
-             return $ seqId state ++ "_" ++ show num'
+newName :: String -> IonSeq String
+newName trc = do state <- get
+                 let num' = seqNum state
+                 put state { seqNum = num' + 1 }
+                 return $ seqId state ++ "_" ++ show num' ++ "_" ++ trc
 
 -- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
 -- If the initial value fails to specify the type of this, then an
@@ -242,7 +247,7 @@ areaP' _ = area'
 -- instantiating one multiple times.)
 newArea :: (IL.IvoryArea area, IL.IvoryZero area) =>
            Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
-newArea init = mkArea =<< newName
+newArea init = mkArea =<< newName "newArea"
   where mkArea name = area' name init
 
 -- | This is 'areaP'', but using 'IonSeq' to create a unique name.
@@ -253,7 +258,7 @@ newAreaP _ = newArea
 -- | This is like Ivory 'proc', but using 'IonSeq' to give the
 -- procedure a unique name.
 newProc :: (IvoryProcDef proc impl) => impl -> IonSeq (Def proc)
-newProc impl = mkProc =<< newName
+newProc impl = mkProc =<< newName "newProc"
   where mkProc name = lift $ Ion { ionNodes = []
                                  , ionDefs = IL.incl $ fn name
                                  , ionVal = fn name
@@ -459,7 +464,7 @@ timer :: (a ~ 'IL.Stored t, Num t, IL.IvoryStore t, IL.IvoryInit t,
          -> Def ('[] ':-> ()) -- ^ Timer expiration procedure
          -> IonSeq (IL.Ref IL.Global (IL.Stored t))
 timer _ expFn = do
-  name <- newName
+  name <- newName "timer"
 
   ion name $ do
     var <- area' name $ Just $ IL.ival 0
