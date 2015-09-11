@@ -20,11 +20,35 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      exps = ionDef "test_ion" test
+      exps = ionDef "test_ion" leakageBug
       mod = package "ion" $ ionModule exps
   catch
     (runCompiler [mod] [] ivoryOpts)
     $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
+
+leakageBug :: IonSeq ()
+leakageBug = ion "leakageBug" $ do
+  Ion.period 200 $ do
+    expr <- Ion.newProc $ body $ retVoid
+    initTimer <- Ion.period 1 $ Ion.timer (Proxy :: Proxy Uint16) expr
+    Ion.ion "otherstuff" $ Ion.ivoryEff $ do
+      comment "Should be period 200 (inherited)"
+
+  {-
+  Ion.phase 0 $ Ion.ion "ph0" $ Ion.ivoryEff $ do
+    comment "Phase 0"
+  Ion.delay 10 $ Ion.ion "d10" $ Ion.ivoryEff $ do
+    comment "Phase 0 + 10"
+  Ion.delay 20 $ Ion.ion "d20" $ Ion.ivoryEff $ do
+    comment "Phase 0 + 10 + 20"
+  Ion.delay 30 $ Ion.ion "d30" $ Ion.ivoryEff $ do
+    comment "Phase 0 + 10 + 20 + 30"
+  Ion.ion "d40" $ Ion.delay 40 $ Ion.ivoryEff $ do
+    comment "Phase 0 + 10 + 20 + 30 + 40"
+  Ion.delay 50 $ Ion.ion "d50" $ Ion.ivoryEff $ do
+    comment "Phase 0 + 10 + 20 + 30 + 40 + 50"
+
+  -}
 
 baz :: IonSeq ()
 baz = ion "extBaz1" $ phase 10 $ do
@@ -38,7 +62,7 @@ baz2 = phase 10 $ ion "extBaz2" $ do
 delayTest :: IonSeq ()
 delayTest = ion "delayTest" $ do
   ivoryEff $ comment "should be phase 0"
-  delay 10 $ ivoryEff $ comment "delay 10 #1"
+  delay 10 $ ion "named" $ ivoryEff $ comment "delay 10 #1"
   delay 10 $ ivoryEff $ comment "delay 10 #2"
   delay 10 $ ivoryEff $ comment "delay 10 #3"
   ion "delayTest2" $ do
@@ -66,11 +90,13 @@ test = ion "Foo" $ do
     ivoryEff $ comment "Foo.Baz period 15"
     ivoryEff $ comment "Foo.Baz period 15b"
 
-  baz
-  baz2
+  period 75 $ do
+    baz
+    baz2
 
   -- FIXME: delayTest improperly inherits phase 10 from baz2.
-  delayTest
+  period 100 $ do
+    delayTest
 
   disable $ ion "disabled" $ period 60000 $ do
     ivoryEff $ comment "Should be disabled"

@@ -211,11 +211,11 @@ ion :: String -- ^ Name
 ion = makeSubFromAction . SetName
 
 -- | Retrieve a name that will be unique for this instance.
-newName :: String -> IonSeq String
-newName trc = do state <- get
-                 let num' = seqNum state
-                 put state { seqNum = num' + 1 }
-                 return $ seqId state ++ "_" ++ show num' ++ "_" ++ trc
+newName :: IonSeq String
+newName = do state <- get
+             let num' = seqNum state
+             put state { seqNum = num' + 1 }
+             return $ seqId state ++ "_" ++ show num'
 
 -- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
 -- If the initial value fails to specify the type of this, then an
@@ -247,18 +247,19 @@ areaP' _ = area'
 -- instantiating one multiple times.)
 newArea :: (IL.IvoryArea area, IL.IvoryZero area) =>
            Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
-newArea init = mkArea =<< newName "newArea"
+newArea init = mkArea =<< newName
   where mkArea name = area' name init
 
 -- | This is 'areaP'', but using 'IonSeq' to create a unique name.
 newAreaP :: (IL.IvoryArea area, IL.IvoryZero area) =>
-            Proxy area -> Maybe (IL.Init area) -> IonSeq (IL.Ref IL.Global area)
+            IL.Proxy area -> Maybe (IL.Init area) ->
+            IonSeq (IL.Ref IL.Global area)
 newAreaP _ = newArea
 
 -- | This is like Ivory 'proc', but using 'IonSeq' to give the
 -- procedure a unique name.
 newProc :: (IvoryProcDef proc impl) => impl -> IonSeq (Def proc)
-newProc impl = mkProc =<< newName "newProc"
+newProc impl = mkProc =<< newName
   where mkProc name = lift $ Ion { ionNodes = []
                                  , ionDefs = IL.incl $ fn name
                                  , ionVal = fn name
@@ -267,7 +268,7 @@ newProc impl = mkProc =<< newName "newProc"
 
 -- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type
 newProcP :: (IvoryProcDef proc impl) =>
-            Proxy (Def proc) -> impl -> IonSeq (Def proc)
+            IL.Proxy (Def proc) -> impl -> IonSeq (Def proc)
 newProcP _ = newProc
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
@@ -387,6 +388,8 @@ flattenSt node = do
   modify $ \(c,s) -> (c { schedPath = schedPath ctxt
                         , schedName = schedName ctxt
                         , schedCond = schedCond ctxt
+                        --, schedPhase = schedPhase ctxt
+                        --, schedPeriod = schedPeriod ctxt
                         }, s)
   -- FIXME: The above step seems possibly wrong.  Am I certain that no other
   -- context besides path and name requires backtracking? 
@@ -460,11 +463,11 @@ adapt_0_5 fn0 = newProc $ \_ _ _ _ _ -> IL.body $ IL.call_ fn0
 -- timer.
 timer :: (a ~ 'IL.Stored t, Num t, IL.IvoryStore t, IL.IvoryInit t,
           IL.IvoryEq t, IL.IvoryOrd t, IL.IvoryArea a, IL.IvoryZero a) =>
-         Proxy t -- ^ Proxy to resolve timer type
+         IL.Proxy t -- ^ Proxy to resolve timer type
          -> Def ('[] ':-> ()) -- ^ Timer expiration procedure
          -> IonSeq (IL.Ref IL.Global (IL.Stored t))
 timer _ expFn = do
-  name <- newName "timer"
+  name <- newName
 
   ion name $ do
     var <- area' name $ Just $ IL.ival 0
@@ -479,6 +482,10 @@ timer _ expFn = do
              IL.ifte_ (val' IL.>? 0) (return ()) $ IL.call_ expFn
 
     return var
+-- FIXME: If the timer expiration procedure is to be fixed at
+-- compile-time, maybe I should also just allow Ivory effects.  This
+-- might make for lighter code and drop the need to make a new
+-- function as a handler.
 
 -- | Begin counting a timer down by the given number of ticks.
 startTimer :: (Num t, IL.IvoryStore t, IL.IvoryZeroVal t) =>

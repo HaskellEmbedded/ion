@@ -6,9 +6,7 @@ Copyright: (c) 2015 Chris Hodapp
 {-# LANGUAGE DataKinds, RecursiveDo, TypeOperators #-}
 module IonSeqTest where
 
-import           Data.Proxy ( Proxy(..) )
-
-import           Ivory.Language hiding ( Proxy )
+import           Ivory.Language
 import           Ivory.Compile.C.CmdlineFrontend
 
 import           Ion
