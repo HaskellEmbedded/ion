@@ -12,6 +12,7 @@ import           Ivory.Language hiding ( Proxy )
 import           Ivory.Compile.C.CmdlineFrontend
 
 import           Ion
+import           IonIvory
 
 main :: IO ()
 main = do
@@ -19,9 +20,9 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      (entry, seqDef') = seqDef testSeq "test_procseq"
-      ionModule = package "procseq" $ seqDef'
-  runCompiler [ionModule] [] ivoryOpts
+      exp = ionDef "test_procseq" testSeq
+      ionMod = package "procseq" $ ionModule exp
+  runCompiler [ionMod] [] ivoryOpts
 
 {-
 main2 :: IO ()

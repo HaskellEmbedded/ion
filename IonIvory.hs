@@ -63,7 +63,8 @@ ionDef name s = IonExports { ionEntry = entryProc
                  incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes
-        nodes = flatten $ head $ ionNodes i0
+        nodes = case ionNodes i0 of [] -> []
+                                    n:_ -> flatten n
         -- FIXME: This shouldn't just be taking the head node, and we should
         -- probably also not hard-code defaultSchedule.
         -- The entry procedure for running the schedule:

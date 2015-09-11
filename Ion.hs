@@ -401,17 +401,6 @@ data IonException = InvalidCName [String] String Int -- ^ Path, C name, and
 
 instance Exception IonException
 
-
--- * Moved from ProcSeq
-
--- | Return the procedure for a 'IonSeq' and the acculumated 'ModuleDef',
--- given a unique string for an ID.
-seqDef :: IonSeq (Def proc) -> String -> (Def proc, IL.ModuleDef)
-seqDef s id = (fn, ionDefs s2)
-  where s2 = runStateT s init
-        (fn, _) = ionVal s2
-        init = SeqState { seqId = id, seqNum = 0 }
-
 -- | All the functions below are for generating procedures to adapt a procedure
 -- of different numbers of arguments.  I am almost certain that a better way
 -- exists than what I did below - probably using typeclasses and mimicking
