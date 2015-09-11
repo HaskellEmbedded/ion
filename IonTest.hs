@@ -20,12 +20,17 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      exps = ionDef "test_ion" leakageBug
+      exps = ionDef "test_ion" lostAttribBug
       mod = package "ion" $ ionModule exps
   catch
     (runCompiler [mod] [] ivoryOpts)
     $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
 
+-- I observe problems with this spec if the 'modify' call used in
+-- 'flattenSt' in Ion.hs does *not* reset schedPhase and
+-- schedPeriod.
+-- The bug goes away if that call does reset schedPhase and
+-- schedPeriod.
 leakageBug :: IonSeq ()
 leakageBug = ion "leakageBug" $ do
   Ion.period 200 $ do
@@ -34,21 +39,12 @@ leakageBug = ion "leakageBug" $ do
     Ion.ion "otherstuff" $ Ion.ivoryEff $ do
       comment "Should be period 200 (inherited)"
 
-  {-
-  Ion.phase 0 $ Ion.ion "ph0" $ Ion.ivoryEff $ do
-    comment "Phase 0"
-  Ion.delay 10 $ Ion.ion "d10" $ Ion.ivoryEff $ do
-    comment "Phase 0 + 10"
-  Ion.delay 20 $ Ion.ion "d20" $ Ion.ivoryEff $ do
-    comment "Phase 0 + 10 + 20"
-  Ion.delay 30 $ Ion.ion "d30" $ Ion.ivoryEff $ do
-    comment "Phase 0 + 10 + 20 + 30"
-  Ion.ion "d40" $ Ion.delay 40 $ Ion.ivoryEff $ do
-    comment "Phase 0 + 10 + 20 + 30 + 40"
-  Ion.delay 50 $ Ion.ion "d50" $ Ion.ivoryEff $ do
-    comment "Phase 0 + 10 + 20 + 30 + 40 + 50"
-
-  -}
+-- I observe problems with this spec if the 'modify' call used in
+-- 'flattenSt' in Ion.hs *does* reset schedPhase and schedPeriod.
+lostAttribBug :: IonSeq ()
+lostAttribBug = Ion.period 200 $ Ion.ion "lostAttribBug" $ do
+  Ion.phase 100 $ Ion.ivoryEff $ comment "Phase 100"
+  Ion.delay 3 $ Ion.ivoryEff $ comment "Should be phase 103"
 
 baz :: IonSeq ()
 baz = ion "extBaz1" $ phase 10 $ do
