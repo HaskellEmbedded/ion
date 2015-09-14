@@ -4,7 +4,7 @@
 module IonWriter where
 
 import           Control.Monad.Writer
--- import           Data.Tree
+import qualified Data.Tree as Tree
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
@@ -46,15 +46,13 @@ data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
                | NoAction -- ^ Do nothing
                deriving (Show)
 
-data IonNode = IonNode { actions :: IonAction
-                       , children :: [IonNode]
-                       } deriving (Show)
+type IonTree = Tree.Tree IonAction
 
-type Ion = Writer [IonNode]
+type Ion = Writer [IonTree]
 
 addAction :: IonAction -> Ion a -> Ion a
 addAction act = mapWriter f
-  where f (a, nodes) = (a, [IonNode { actions = act, children = nodes }])
+  where f (a, nodes) = (a, [Tree.Node act nodes])
 
 period :: Integer -> Ion a -> Ion a
 period = addAction . SetPeriod
@@ -70,6 +68,13 @@ ion = addAction . SetName
 
 cond :: (IvoryAction IL.IBool) -> Ion a -> Ion a
 cond = addAction . AddCondition
+
+disable :: Ion a -> Ion a
+disable = addAction Disable
+
+-- I don't know why you'd need this.
+nothing :: Ion a -> Ion a
+nothing = addAction NoAction
 
 ivoryEff :: (IvoryAction ()) -> Ion a -> Ion a
 ivoryEff = addAction . IvoryEff

@@ -25,6 +25,7 @@ library
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base
+                     , containers
                      , ivory
                      , ivory-backend-c
                      , mtl
