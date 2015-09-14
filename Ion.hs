@@ -16,6 +16,9 @@ need to be composed.
 
 To-do items:
 
+   * Solve the annoying bugs mentioned in IonTest!  A good starting point
+appears to be the 'SpecWith' type in hspec,
+https://hackage.haskell.org/package/hspec
    * Put this code into sensible namespaces!
    * Continue writing documentation and examples!
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
