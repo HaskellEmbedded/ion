@@ -80,8 +80,9 @@ ionDef name s = IonExports { ionEntry = entryProc
           -- FIXME: Disambiguate the name of this procedure
         schedFns :: [Def ('[] ':-> ())]
         schedFns = map mkSchedFn nodes
+        id' sch = "_" ++ (show $ schedId sch)
         -- The name of the counter symbol:
-        counterSym sch = "counter_" ++ schedName sch
+        counterSym sch = "counter_" ++ schedName sch ++ id' sch
         -- The ModuleDef of the counter's MemArea:
         counterDef sch =
           let areaDef :: forall a .
@@ -98,7 +99,7 @@ ionDef name s = IonExports { ionEntry = entryProc
             -- FIXME: I think this introduces problems when phase proceeds
             -- period, and phase exceeds a Word8.
         -- The Ivory procedure for some schedule item:
-        mkSchedFn sch = proc ("ion_" ++ schedName sch) $ body $ do
+        mkSchedFn sch = proc ("ion_" ++ schedName sch ++ id' sch) $ body $ do
           noReturn $ noBreak $ noAlloc $ getIvory sch
         -- The Ivory effect for invoking a given schedule item:
         entryEff (sch, schFn) = emit $

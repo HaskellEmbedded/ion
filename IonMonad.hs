@@ -120,12 +120,18 @@ flattenTree ctxt (Tree.Node action forest) = this : rest
 
 -- | Produce a flat list of scheduled actions from an 'Ion'.
 flatten :: Ion a -> [Schedule]
-flatten i = prune $ join $
+flatten i = uniqueIds 0 $ prune $ join $
             map (flattenTree defaultSchedule) $ snd $ execWriter i
 
 -- | Prune any schedule item that has no Ivory actions.
 prune :: [Schedule] -> [Schedule]
 prune = filter (not . null . schedAction)
+
+-- | Assign unique IDs to the list of schedule items, starting from the given
+-- ID.
+uniqueIds :: Integer -> [Schedule] -> [Schedule]
+uniqueIds _ [] = []
+uniqueIds n (x:xs) = (x { schedId = n }) : uniqueIds (n + 1) xs
 
 data IonException = InvalidCName [String] String Int -- ^ Path, C name, and
                     -- index at which it is invalid
