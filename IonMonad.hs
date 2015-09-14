@@ -1,7 +1,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
-module IonWriter where
+module IonMonad where
 
 import           Control.Exception
 import           Control.Monad.Writer
@@ -14,6 +14,19 @@ import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
                                        IvoryProcDef )
 
 import           IonUtil
+
+-- | 'Ion' simply accumulates in a 'ModuleDef', and a forest:
+type Ion = Writer (IL.ModuleDef, [IonTree])
+
+ionDefs :: Ion a -> IL.ModuleDef
+ionDefs i = fst $ snd $ runWriter i
+
+-- | A tree of commands, some of which apply hierarchically.  For instance,
+-- setting a name ('SetName') adds a prefix the path to all branches
+-- underneath; setting a period ('SetPeriod') will set the period of
+-- all branches underneath, provided something else underneath does
+-- not override.  ('modSchedule' contains the specific rules.)
+type IonTree = Tree.Tree IonAction
 
 -- | The type of Ivory action that an 'IonNode' can support. Note that this
 -- purposely forbids breaking, returning, and allocating.
@@ -49,34 +62,9 @@ data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
                | Disable -- ^ Disable this node and all children
                deriving (Show)
 
-type IonTree = Tree.Tree IonAction
-
-type Ion = Writer [IonTree]
-
-addAction :: IonAction -> Ion a -> Ion a
-addAction act = mapWriter f
-  where f (a, nodes) = (a, [Tree.Node act nodes])
-
-period :: Integer -> Ion a -> Ion a
-period = addAction . SetPeriod
-
-phase :: Integer -> Ion a -> Ion a
-phase = addAction . SetPhase Absolute Exact
-
-delay :: Integer -> Ion a -> Ion a
-delay = addAction . SetPhase Relative Exact
-
-ion :: String -> Ion a -> Ion a
-ion = addAction . SetName
-
-cond :: (IvoryAction IL.IBool) -> Ion a -> Ion a
-cond = addAction . AddCondition
-
-disable :: Ion a -> Ion a
-disable = addAction Disable
-
-ivoryEff :: (IvoryAction ()) -> Ion ()
-ivoryEff eff = addAction (IvoryEff eff) $ return ()
+addAction_ :: IonAction -> Ion a -> Ion a
+addAction_ act = mapWriter f
+  where f (a, (m, nodes)) = (a, (m, [Tree.Node act nodes]))
 
 -- | A scheduled action.  Phase and period here are absolute, and there are no
 -- child nodes.
@@ -123,13 +111,17 @@ modSchedule (SetName name) s =
 modSchedule (AddCondition iv) s = s { schedCond = iv : schedCond s }
 -- FIXME: Handle exact and minimum phase.
 
+-- | Recursive helper call to 'flatten'; first argument is a starting
+-- context.
 flattenTree :: Schedule -> IonTree -> [Schedule]
 flattenTree ctxt (Tree.Node action forest) = this : rest
   where this = modSchedule action ctxt
         rest = join $ map (flattenTree this) forest
 
-flatten :: Ion () -> [Schedule]
-flatten i = prune $ join $ map (flattenTree defaultSchedule) $ execWriter i
+-- | Produce a flat list of scheduled actions from an 'Ion'.
+flatten :: Ion a -> [Schedule]
+flatten i = prune $ join $
+            map (flattenTree defaultSchedule) $ snd $ execWriter i
 
 -- | Prune any schedule item that has no Ivory actions.
 prune :: [Schedule] -> [Schedule]
@@ -143,6 +135,7 @@ data IonException = InvalidCName [String] String Int -- ^ Path, C name, and
 
 instance Exception IonException
 
+{-
 test :: Ion ()
 test = do
   ion "foo" $ period 20 $ ion "bar" $ do
@@ -155,3 +148,4 @@ test = do
     ivoryEff $ IL.comment "foo"
     return ()
   return ()
+-}

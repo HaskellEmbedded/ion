@@ -21,7 +21,7 @@ library
                      , IonSeqTest
                      , IonTest
                      , IonUtil
-                     , IonWriter
+                     , IonMonad
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base

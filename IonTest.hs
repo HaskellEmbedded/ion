@@ -13,6 +13,7 @@ import           Ivory.Compile.C.CmdlineFrontend
 
 import           Ion
 import           IonIvory
+import           IonMonad
 
 main :: IO ()
 main = do

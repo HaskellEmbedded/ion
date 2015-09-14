@@ -26,6 +26,7 @@ module IonIvory where
 
 import           Control.Exception
 import           Control.Monad.State hiding ( forever )
+import           Control.Monad.Writer
 
 import           Ivory.Language
 import           Ivory.Language.MemArea ( memSym )
@@ -35,6 +36,7 @@ import qualified Ivory.Language.Syntax.Names as N
 import qualified Ivory.Language.Syntax.Type as Ty
 
 import           Ion
+import           IonMonad
 import           IonUtil
 
 -- | Concrete exports from an 'Ion' or 'IonSeq'
@@ -53,18 +55,18 @@ ionDef :: String -- ^ Name for schedule function
           -> IonExports a
 ionDef name s = IonExports { ionEntry = entryProc
                            , ionModule = mod
-                           , ionValue = fst $ ionVal i0
+                           , ionValue = fst v
                            }
   where init = SeqState { seqId = name, seqNum = 0 }
         -- FIXME: 'init' should probably not be hard-coded.
         -- i0 :: Ion (a, SeqState)
         i0 = runStateT s init
+        (v, st) = runWriter i0
         mod = do ionDefs i0
                  incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes
-        nodes = case ionNodes i0 of [] -> []
-                                    n:_ -> flatten n
+        nodes = flatten i0
         -- FIXME: This shouldn't just be taking the head node, and we should
         -- probably also not hard-code defaultSchedule.
         -- The entry procedure for running the schedule:
