@@ -4,6 +4,7 @@
 module IonWriter where
 
 import           Control.Monad.Writer
+-- import           Data.Tree
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
@@ -30,7 +31,6 @@ data PhaseType = Min -- ^ Minimum phase (i.e. at this phase, or any
                | Exact -- ^ Exactly this phase
                deriving (Show)
 
-{-
 -- | An action/effect that a node can have.
 data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
                  -- node should perform
@@ -42,71 +42,37 @@ data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
                | AddCondition (IvoryAction IL.IBool) -- ^ Adding a condition to
                  -- this node which must return 'true' for the node *and* for
                  -- any sub-nodes to execute their actions
+               | Disable -- ^ Disable this node and all children
                | NoAction -- ^ Do nothing
                deriving (Show)
--}
 
-data IonNode = IonNode { ionName :: String
-                       , ionPhase :: Integer
-                       , ionPeriod :: Maybe Integer
-                       , ionAction :: [IvoryAction ()]
-                       , ionCond :: [IvoryAction IL.IBool]
-                       , ionDisable :: Bool
-                       , ionChildren :: [IonNode]
+data IonNode = IonNode { actions :: IonAction
+                       , children :: [IonNode]
                        } deriving (Show)
-
-ionNode = IonNode { ionName = ""
-                  , ionPhase = 0
-                  , ionPeriod = Nothing
-                  , ionAction = []
-                  , ionCond = []
-                  , ionDisable = False
-                  , ionChildren = []
-                  }
 
 type Ion = Writer [IonNode]
 
-subIon :: (IonNode -> IonNode) -> Ion a -> Ion a
-subIon fn = mapWriter f
-  where f (a, children) = (a, [node children])
-        node ch = (fn ionNode) { ionChildren = ch }
-
-mapIon :: (IonNode -> IonNode) -> Ion a -> Ion a
-mapIon fn = mapWriter f
-  where f (a, children) = (a, map fn' children)
-        fn' node = fn node { ionChildren = map fn' $ ionChildren node }
+addAction :: IonAction -> Ion a -> Ion a
+addAction act = mapWriter f
+  where f (a, nodes) = (a, [IonNode { actions = act, children = nodes }])
 
 period :: Integer -> Ion a -> Ion a
-period n = mapIon $ \i ->
-  i { ionPeriod = case ionPeriod i of Nothing -> Just n
-                                      m@_     -> m
-    }
-
-ion :: String -> Ion a -> Ion a
-ion str = subIon (\i -> i { ionName = str })
-
-{-
-mkAction :: IonAction -> Ion a -> Ion a
-mkAction act i = (\a -> writer (a, [act])) =<< i
-
-period :: Integer -> Ion a -> Ion a
-period = mkAction . SetPeriod
+period = addAction . SetPeriod
 
 phase :: Integer -> Ion a -> Ion a
-phase = mkAction . SetPhase Absolute Exact
+phase = addAction . SetPhase Absolute Exact
 
 delay :: Integer -> Ion a -> Ion a
-delay = mkAction . SetPhase Relative Exact
+delay = addAction . SetPhase Relative Exact
 
 ion :: String -> Ion a -> Ion a
-ion = mkAction . SetName
+ion = addAction . SetName
 
 cond :: (IvoryAction IL.IBool) -> Ion a -> Ion a
-cond = mkAction . AddCondition
+cond = addAction . AddCondition
 
 ivoryEff :: (IvoryAction ()) -> Ion a -> Ion a
-ivoryEff = mkAction . IvoryEff
--}
+ivoryEff = addAction . IvoryEff
 
 test :: Ion ()
 test = do
