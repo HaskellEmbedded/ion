@@ -75,8 +75,8 @@ cond = addAction . AddCondition
 disable :: Ion a -> Ion a
 disable = addAction Disable
 
-ivoryEff :: (IvoryAction ()) -> Ion a -> Ion a
-ivoryEff = addAction . IvoryEff
+ivoryEff :: (IvoryAction ()) -> Ion ()
+ivoryEff eff = addAction (IvoryEff eff) $ return ()
 
 -- | A scheduled action.  Phase and period here are absolute, and there are no
 -- child nodes.
@@ -107,7 +107,7 @@ defaultSchedule = Schedule { schedId = 0
 
 -- | Transform a 'Schedule' according to an 'IonAction'.
 modSchedule :: IonAction -> Schedule -> Schedule
-modSchedule (IvoryEff _) s = s
+modSchedule (IvoryEff eff) s = s { schedAction = schedAction s ++ [eff] }
 modSchedule (SetPhase t _ ph) s =
   if (ph' >= schedPeriod s)
   then throw $ PhaseExceedsPeriod (schedPath s) ph' (schedPeriod s)
@@ -129,10 +129,11 @@ flattenTree ctxt (Tree.Node action forest) = this : rest
         rest = join $ map (flattenTree this) forest
 
 flatten :: Ion () -> [Schedule]
-flatten i = join $ map (flattenTree defaultSchedule) $ execWriter i
+flatten i = prune $ join $ map (flattenTree defaultSchedule) $ execWriter i
 
+-- | Prune any schedule item that has no Ivory actions.
 prune :: [Schedule] -> [Schedule]
-prune = filter undefined
+prune = filter (not . null . schedAction)
 
 data IonException = InvalidCName [String] String Int -- ^ Path, C name, and
                     -- index at which it is invalid
@@ -148,8 +149,9 @@ test = do
     ion "baz" $ return ()
     ion "quux" $ return ()
     period 10 $ ion "period10" $ period 5 $ return ()
-    period 10 $ ion "period10b" $ return ()
+    period 10 $ ion "period10b" $ ivoryEff $ IL.comment "period 10b"
     return ()
   period 40 $ do
+    ivoryEff $ IL.comment "foo"
     return ()
   return ()
