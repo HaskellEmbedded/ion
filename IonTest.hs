@@ -44,8 +44,12 @@ leakageBug = ion "leakageBug" $ do
 -- 'flattenSt' in Ion.hs *does* reset schedPhase and schedPeriod.
 lostAttribBug :: IonSeq ()
 lostAttribBug = Ion.period 200 $ Ion.ion "lostAttribBug" $ do
-  Ion.phase 100 $ Ion.ivoryEff $ comment "Phase 100"
-  Ion.delay 3 $ Ion.ivoryEff $ comment "Should be phase 103"
+  Ion.phase 100 $ do
+    Ion.ivoryEff $ comment "Phase 100"
+    Ion.delay 3 $ do
+      Ion.ivoryEff $ comment "Should be phase 103"
+      Ion.delay 10 $ do
+        Ion.ivoryEff $ comment "Should be phase 113"
 
 baz :: IonSeq ()
 baz = ion "extBaz1" $ phase 10 $ do

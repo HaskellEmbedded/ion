@@ -1,3 +1,11 @@
+{- |
+Module: IonMonad
+Description: Ion type definitions
+Copyright: (c) 2015 Chris Hodapp
+
+This contains some base Ion types that are used elsewhere.
+
+-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -154,18 +162,3 @@ data IonException = InvalidCName [String] String Int -- ^ Path, C name, and
     deriving (Show, Typeable)
 
 instance Exception IonException
-
-{-
-test :: Ion ()
-test = do
-  ion "foo" $ period 20 $ ion "bar" $ do
-    ion "baz" $ return ()
-    ion "quux" $ return ()
-    period 10 $ ion "period10" $ period 5 $ return ()
-    period 10 $ ion "period10b" $ ivoryEff $ IL.comment "period 10b"
-    return ()
-  period 40 $ do
-    ivoryEff $ IL.comment "foo"
-    return ()
-  return ()
--}
