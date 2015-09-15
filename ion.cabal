@@ -2,7 +2,7 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                ion
-version:             0.2.0.0
+version:             0.3.0.0
 -- synopsis:            
 -- description:         
 -- license:             
@@ -21,6 +21,7 @@ library
                      , Ivory.Language.Ion.Code
                      , Ivory.Language.Ion.Example
                      , Ivory.Language.Ion.Operators
+                     , Ivory.Language.Ion.Schedule
                      , Ivory.Language.Ion.Util
   -- other-modules:       
   -- other-extensions:    
