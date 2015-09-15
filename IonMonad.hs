@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
@@ -15,11 +16,24 @@ import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
 
 import           IonUtil
 
--- | 'Ion' simply accumulates in a 'ModuleDef', and a forest:
-type Ion = Writer (IL.ModuleDef, [IonTree])
+-- | 'Ion' accumulates contents of an 'IonDef'
+type Ion = Writer IonDef
 
-ionDefs :: Ion a -> IL.ModuleDef
-ionDefs i = fst $ snd $ runWriter i
+data IonDef = IonDef { ionDefs :: IL.ModuleDef -- ^ Ivory definitions
+                                  -- that the specifications produce
+                     , ionTree :: [IonTree] -- ^ A tree of specifications
+                     }
+
+instance Monoid IonDef where
+  mempty = IonDef { ionDefs = mempty
+                  , ionTree = []
+                  }
+  mappend a b = IonDef { ionDefs = mappend (ionDefs a) (ionDefs b)
+                       , ionTree = mappend (ionTree a) (ionTree b)
+                       }
+
+-- ionDefs :: Ion a -> IL.ModuleDef
+-- ionDefs i = fst $ snd $ runWriter i
 
 -- | A tree of commands, some of which apply hierarchically.  For instance,
 -- setting a name ('SetName') adds a prefix the path to all branches
@@ -64,7 +78,7 @@ data IonAction = IvoryEff (IvoryAction ()) -- ^ The Ivory effects that this
 
 addAction_ :: IonAction -> Ion a -> Ion a
 addAction_ act = mapWriter f
-  where f (a, (m, nodes)) = (a, (m, [Tree.Node act nodes]))
+  where f (a, def) = (a, def { ionTree = [Tree.Node act $ ionTree def] })
 
 -- | A scheduled action.  Phase and period here are absolute, and there are no
 -- child nodes.
@@ -121,7 +135,7 @@ flattenTree ctxt (Tree.Node action forest) = this : rest
 -- | Produce a flat list of scheduled actions from an 'Ion'.
 flatten :: Ion a -> [Schedule]
 flatten i = uniqueIds 0 $ prune $ join $
-            map (flattenTree defaultSchedule) $ snd $ execWriter i
+            map (flattenTree defaultSchedule) $ ionTree $ execWriter i
 
 -- | Prune any schedule item that has no Ivory actions.
 prune :: [Schedule] -> [Schedule]

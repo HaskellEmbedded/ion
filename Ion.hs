@@ -179,7 +179,9 @@ area' :: (IL.IvoryArea area, IL.IvoryZero area) =>
          -> IonSeq (IL.Ref IL.Global area)
 area' name init = do
   let mem = IL.area name init
-  tell (IL.defMemArea mem, [])
+  tell $ IonDef { ionDefs = IL.defMemArea mem
+                , ionTree = []
+                }
   return $ IL.addrOf mem
 
 -- | Same as 'area'', but with an initial 'IL.Proxy' to disambiguate
@@ -211,7 +213,9 @@ newProc :: (IvoryProcDef proc impl) => impl -> IonSeq (Def proc)
 newProc impl = do
   name <- newName
   let fn sym = IL.proc sym impl
-  tell (IL.incl $ fn name, [])
+  tell $ IonDef { ionDefs = IL.incl $ fn name
+                , ionTree = []
+                }
   return $ fn name
 
 -- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type

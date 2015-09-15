@@ -61,8 +61,8 @@ ionDef name s = IonExports { ionEntry = entryProc
         -- FIXME: 'init' should probably not be hard-coded.
         -- i0 :: Ion (a, SeqState)
         i0 = runStateT s init
-        (v, st) = runWriter i0
-        mod = do ionDefs i0
+        (v, def) = runWriter i0
+        mod = do ionDefs def
                  incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes
