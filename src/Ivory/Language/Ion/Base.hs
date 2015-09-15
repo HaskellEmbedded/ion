@@ -5,38 +5,29 @@ Copyright: (c) 2015 Chris Hodapp
 
 -}
 
--- {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE FlexibleInstances #-}
--- {-# LANGUAGE GeneralizedNewtypeDeriving #-}
--- {-# LANGUAGE TypeFamilies #-}
--- {-# LANGUAGE TypeOperators #-}
 
 module Ivory.Language.Ion.Base where
 
--- import           Control.Applicative
 import           Control.Exception
--- import           Control.Monad
 import           Control.Monad.State hiding ( forever )
 import           Control.Monad.Writer
--- import           Data.Maybe ( mapMaybe )
 import qualified Data.Tree as Tree
 import           Data.Typeable
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
---import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
---                                       IvoryProcDef )
 
 -- | This wraps 'Ion' with the ability to create unique C identifier names.
-type IonSeq t = StateT SeqState Ion t
+type Ion = StateT SeqState IonM
 
 data SeqState = SeqState { seqId :: String -- ^ Unique ID (used as base name)
                          , seqNum :: Int -- ^ Next unused number
                          } deriving (Show)
 
--- | 'Ion' accumulates contents of an 'IonDef'
-type Ion = Writer IonDef
+-- | 'IonM' accumulates contents of an 'IonDef'
+type IonM = Writer IonDef
 
 data IonDef = IonDef { ionDefs :: IL.ModuleDef -- ^ Ivory definitions
                                   -- that the specifications produce

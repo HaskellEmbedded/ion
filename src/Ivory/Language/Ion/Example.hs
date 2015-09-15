@@ -34,7 +34,7 @@ main = do
 -- schedPeriod.
 -- The bug goes away if that call does reset schedPhase and
 -- schedPeriod.
-leakageBug :: IonSeq ()
+leakageBug :: Ion ()
 leakageBug = ion "leakageBug" $ do
   period 200 $ do
     expr <- newProc $ body $ retVoid
@@ -44,7 +44,7 @@ leakageBug = ion "leakageBug" $ do
 
 -- I observe problems with this spec if the 'modify' call used in
 -- 'flattenSt' in hs *does* reset schedPhase and schedPeriod.
-lostAttribBug :: IonSeq ()
+lostAttribBug :: Ion ()
 lostAttribBug = period 200 $ ion "lostAttribBug" $ do
   phase 100 $ do
     ivoryEff $ comment "Phase 100"
@@ -53,16 +53,16 @@ lostAttribBug = period 200 $ ion "lostAttribBug" $ do
       delay 10 $ do
         ivoryEff $ comment "Should be phase 113"
 
-baz :: IonSeq ()
+baz :: Ion ()
 baz = ion "extBaz1" $ phase 10 $ do
   ivoryEff $ comment "should be phase 10"
   phase 20 $ ivoryEff $ comment "should be phase 20"
 
-baz2 :: IonSeq ()
+baz2 :: Ion ()
 baz2 = phase 10 $ ion "extBaz2" $ do
   ivoryEff $ comment "should be phase 10"
 
-delayTest :: IonSeq ()
+delayTest :: Ion ()
 delayTest = ion "delayTest" $ do
   ivoryEff $ comment "should be phase 0"
   delay 10 $ ion "named" $ ivoryEff $ comment "delay 10 #1"
@@ -72,7 +72,7 @@ delayTest = ion "delayTest" $ do
     delay 20 $ ivoryEff $ comment "should have inherited delay"
 
 -- | Dummy spec for the sake of testing
-test :: IonSeq ()
+test :: Ion ()
 test = ion "Foo" $ do
 
   test <- areaP' (Proxy :: Proxy (Stored Uint16)) "testMem" Nothing

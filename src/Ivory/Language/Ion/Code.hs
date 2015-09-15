@@ -37,7 +37,7 @@ import           Ivory.Language.Ion.Base
 import           Ivory.Language.Ion.Schedule
 import           Ivory.Language.Ion.Util
 
--- | Concrete exports from an 'Ion' or 'IonSeq'
+-- | Concrete exports from an 'Ion'
 data IonExports a = IonExports
                     { ionEntry :: Def ('[] ':-> ())
                     , ionModule :: ModuleDef
@@ -47,9 +47,9 @@ data IonExports a = IonExports
 -- I'm basically just exporting an 'Ion' (but one that semantically is
 -- different) plus an entry procedure.
 
--- | Produce exports from the given 'IonSeq' specs.
+-- | Produce exports from the given 'Ion' specs.
 ionDef :: String -- ^ Name for schedule function
-          -> IonSeq a -- ^ Ion specification
+          -> Ion a -- ^ Ion specification
           -> IonExports a
 ionDef name s = IonExports { ionEntry = entryProc
                            , ionModule = mod

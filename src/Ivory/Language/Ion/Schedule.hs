@@ -68,8 +68,8 @@ flattenTree ctxt (Tree.Node action forest) = this : rest
   where this = modSchedule action ctxt
         rest = join $ map (flattenTree this) forest
 
--- | Produce a flat list of scheduled actions from an 'Ion'.
-flatten :: Ion a -> [Schedule]
+-- | Produce a flat list of scheduled actions from an 'IonM'.
+flatten :: IonM a -> [Schedule]
 flatten i = uniqueIds 0 $ prune $ join $
             map (flattenTree defaultSchedule) $ ionTree $ execWriter i
 
