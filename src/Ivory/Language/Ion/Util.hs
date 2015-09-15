@@ -1,10 +1,10 @@
 {- |
-Module: IonUtil
-Description: Utility functions for Ion
+Module: Util
+Description: Utility functions used throughout Ion
 Copyright: (c) 2015 Chris Hodapp
 
 -}
-module IonUtil where
+module Ivory.Language.Ion.Util where
 
 import           Data.Char ( isAlpha, isDigit )
 
@@ -48,3 +48,4 @@ checkCName str = check str 0
         check (c:cs) i = if (isAlpha c || '_' == c || (i > 0 && isDigit c))
                          then check cs (i + 1)
                          else Just i
+

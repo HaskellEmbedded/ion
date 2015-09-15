@@ -1,19 +1,21 @@
 {- |
-Module: IonTest
-Description: Example Ion module & code generation
+Module: Example
+Description: Example Ion modules & code generation
 Copyright: (c) 2015 Chris Hodapp
+
 -}
 {-# LANGUAGE DataKinds #-}
-module IonTest where
+
+module Ivory.Language.Ion.Example where
 
 import           Control.Exception
 
 import           Ivory.Language
 import           Ivory.Compile.C.CmdlineFrontend
 
-import           Ion
-import           IonIvory
-import           IonMonad
+import           Ivory.Language.Ion.Base
+import           Ivory.Language.Ion.Code
+import           Ivory.Language.Ion.Operators
 
 main :: IO ()
 main = do
@@ -34,22 +36,22 @@ main = do
 -- schedPeriod.
 leakageBug :: IonSeq ()
 leakageBug = ion "leakageBug" $ do
-  Ion.period 200 $ do
-    expr <- Ion.newProc $ body $ retVoid
-    initTimer <- Ion.period 1 $ Ion.timer (Proxy :: Proxy Uint16) expr
-    Ion.ion "otherstuff" $ Ion.ivoryEff $ do
+  period 200 $ do
+    expr <- newProc $ body $ retVoid
+    initTimer <- period 1 $ timer (Proxy :: Proxy Uint16) expr
+    ion "otherstuff" $ ivoryEff $ do
       comment "Should be period 200 (inherited)"
 
 -- I observe problems with this spec if the 'modify' call used in
--- 'flattenSt' in Ion.hs *does* reset schedPhase and schedPeriod.
+-- 'flattenSt' in hs *does* reset schedPhase and schedPeriod.
 lostAttribBug :: IonSeq ()
-lostAttribBug = Ion.period 200 $ Ion.ion "lostAttribBug" $ do
-  Ion.phase 100 $ do
-    Ion.ivoryEff $ comment "Phase 100"
-    Ion.delay 3 $ do
-      Ion.ivoryEff $ comment "Should be phase 103"
-      Ion.delay 10 $ do
-        Ion.ivoryEff $ comment "Should be phase 113"
+lostAttribBug = period 200 $ ion "lostAttribBug" $ do
+  phase 100 $ do
+    ivoryEff $ comment "Phase 100"
+    delay 3 $ do
+      ivoryEff $ comment "Should be phase 103"
+      delay 10 $ do
+        ivoryEff $ comment "Should be phase 113"
 
 baz :: IonSeq ()
 baz = ion "extBaz1" $ phase 10 $ do

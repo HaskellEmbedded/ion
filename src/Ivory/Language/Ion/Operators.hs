@@ -1,100 +1,31 @@
 {- |
-Module: Ion
-Description: Top-level Ion module
+Module: Operators
+Description: Operators used in creating Ion specifications
 Copyright: (c) 2015 Chris Hodapp
-
-Ion is a Haskell EDSL that is inspired by another EDSL,
-<https://hackage.haskell.org/package/atom Atom>.  Ion aims to be a
-re-implementation of Atom which, rather than generating C code
-directly (as Atom does), interfaces with another very powerful, more
-general EDSL, <http://ivorylang.org/ Ivory>.
-
-It also contains support for sequencing and bundling related
-procedures together, particularly for cases when they call each other
-in continuation-passing style or rely on asynchronous callbacks - and
-need to be composed.
-
-To-do items:
-
-   * Put this code into sensible namespaces!
-   * Continue writing documentation and examples!
-   * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
-(This is partially done in 'flatten'.)
-   * I can do a relative phase; what about a relative period? That is, a
-period which is relative not to the base rate, but to the last rate that was
-inherited.
-   * Atom treats everything within a node as happening at the same time, and I
-do not handle this yet, though I rather should.  This may be complicated - I
-may either need to process the Ivory effect to look at variable references, or
-perhaps add certain features to the monad.
-   * Right now one can only pass variables to an Ion by way of a Ref or some
-derivative, and those must then be dereferenced inside of an 'ivoryEff' call.
-Is this okay?  Should we make this more flexible somehow?  (I feel like Atom
-did it similarly, with V & E.)
-   * Pretty-printing the schedule itself (as Atom does) would probably be a
-good idea.
-   * Atom contained a way to retrieve the current period and phase inside the
-monad; I should implement this.
-   * Consider the case where you put a condition on a node, and that node
-has many sub-nodes across various delays.  Now, suppose that that condition
-becomes false somewhere in the middle of those delays.  Is the entire node
-blocked from taking effect, or does it partially take effect?  When is the
-condition considered as being evaluated?  Right now it is evaluated at every
-single sub-node that inherits it.  I consider this to be a violation of how
-Ion should operate - synchronously and atomically.
-
-Things to consider (copied from ProcSeq):
-
-   * How would I represent a long non-blocking delay in this?
-   * It's still a bit cumbersome when combining together Ivory procedures of
-different types, though my 'adapt_x_y' calls help somewhat.
-   * In my SPI example, I send an opcode along with a length and an expected
-length to read back.  This call is async, and the return continuation receives
-the number of bytes actually read.  I want to check this number at the return
-continuation - and I'd like to avoid having to write this manually for every
-case and repeat the number of expected bytes.  How would I represent this?
-   * I still don't have a solution for making 'Ion' and 'ProcSeq' play nice
-together.  Particularly: 'ProcSeq', to use something like a timer, must get one
-of its functions embedded in an 'Ion' somehow.  This can't be passed as a C
-value, since the value would have to persist past a function's lifetime, and
-Ivory doesn't permit storing a function pointer in a global.  Second: The 'Ion'
-must be accessible outside of the 'ProcSeq' so that it can either have its code
-and its entry function generated directly, or else be embedded in some larger
-'Ion' spec which takes care of this.  Generally, this means two things must
-come out of that 'ProcSeq': an 'Ion' spec that takes care of the timer, and
-an entry function (because how else would one access any of its
-functionality?).
 
 -}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Ion where
+module Ivory.Language.Ion.Operators where
 
-import           Control.Applicative
-import           Control.Exception
+import           Control.Applicative ( (<$>) )
 import           Control.Monad
 import           Control.Monad.State hiding ( forever )
 import           Control.Monad.Writer
-import           Data.Maybe ( mapMaybe )
-import           Data.Typeable
+import qualified Data.Tree as Tree
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
 import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
                                        IvoryProcDef )
 
+import           Ivory.Language.Ion.Base
 
-import           IonMonad
-import           IonUtil
-
--- | This wraps 'Ion' with the ability to create unique C identifier names.
-type IonSeq t = StateT SeqState Ion t
-
-data SeqState = SeqState { seqId :: String -- ^ Unique ID (used as base name)
-                         , seqNum :: Int -- ^ Next unused number
-                         } deriving (Show)
+addAction_ :: IonAction -> Ion a -> Ion a
+addAction_ act = mapWriter f
+  where f (a, def) = (a, def { ionTree = [Tree.Node act $ ionTree def] })
 
 addAction :: IonAction -> IonSeq a -> IonSeq a
 addAction act s0 = do

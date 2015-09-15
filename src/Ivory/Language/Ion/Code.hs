@@ -1,6 +1,6 @@
 {- |
-Module: IonIvory
-Description: Conversion from Ion to Ivory modules & procedures
+Module: Code
+Description: Ivory code generation from Ion specifications
 Copyright: (c) 2015 Chris Hodapp
 
 This contains functionality for converting the 'Ion' type to Ivory constructs.
@@ -21,10 +21,8 @@ variable at 0, counting up, checking for each individual phase?
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TypeOperators #-}
+module Ivory.Language.Ion.Code where
 
-module IonIvory where
-
-import           Control.Exception
 import           Control.Monad.State hiding ( forever )
 import           Control.Monad.Writer
 
@@ -35,9 +33,9 @@ import qualified Ivory.Language.Syntax.AST as AST
 import qualified Ivory.Language.Syntax.Names as N
 import qualified Ivory.Language.Syntax.Type as Ty
 
-import           Ion
-import           IonMonad
-import           IonUtil
+import           Ivory.Language.Ion.Base
+import           Ivory.Language.Ion.Schedule
+import           Ivory.Language.Ion.Util
 
 -- | Concrete exports from an 'Ion' or 'IonSeq'
 data IonExports a = IonExports
