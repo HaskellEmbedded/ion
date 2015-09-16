@@ -34,13 +34,19 @@ Is this okay?  Should we make this more flexible somehow?  (I feel like Atom
 did it similarly, with V & E.)
    * Pretty-printing the schedule itself (as Atom does) would probably be a
 good idea.
-   * Consider the case where you put a condition on a node, and that node
+   * Consider the case where one puts a condition on a node, and that node
 has many sub-nodes across various delays.  Now, suppose that that condition
 becomes false somewhere in the middle of those delays.  Is the entire node
 blocked from taking effect, or does it partially take effect?  When is the
 condition considered as being evaluated?  Right now it is evaluated at every
 single sub-node that inherits it.  I consider this to be a violation of how
 Ion should operate - synchronously and atomically.
+   * Operators.hs has notes of some cleanup that should (probably) occur.
+Particularly, I have some duplication with commands being applied to a
+'Schedule' both to track context, and to later process the tree.  I also
+have concerns with correctness here.  The context tracking is to make certain
+things available within the monad, such as phase, though they're not actually
+computed until later.
 
 Things to consider (copied from ProcSeq):
 
