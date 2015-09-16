@@ -24,7 +24,6 @@ variable at 0, counting up, checking for each individual phase?
 module Ivory.Language.Ion.Code where
 
 import           Control.Monad.State hiding ( forever )
-import           Control.Monad.Writer
 
 import           Ivory.Language
 import           Ivory.Language.MemArea ( memSym )

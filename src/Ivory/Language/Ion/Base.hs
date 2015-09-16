@@ -12,7 +12,6 @@ module Ivory.Language.Ion.Base where
 
 import           Control.Exception
 import           Control.Monad.State hiding ( forever )
-import           Control.Monad.Writer
 import qualified Data.Tree as Tree
 import           Data.Typeable
 

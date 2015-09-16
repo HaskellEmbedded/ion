@@ -8,7 +8,6 @@ module Ivory.Language.Ion.Schedule where
 
 import           Control.Exception
 import           Control.Monad
-import           Control.Monad.Writer
 import qualified Data.Tree as Tree
 
 import qualified Ivory.Language as IL

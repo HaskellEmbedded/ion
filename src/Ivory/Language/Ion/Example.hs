@@ -23,7 +23,7 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      exps = ionDef "test_ion" lostAttribBug
+      exps = ionDef "test_ion" leakageBug
       mod = package "ion" $ ionModule exps
   catch
     (runCompiler [mod] [] ivoryOpts)
