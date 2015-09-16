@@ -22,6 +22,7 @@ import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
                                        IvoryProcDef )
 
 import           Ivory.Language.Ion.Base
+import           Ivory.Language.Ion.Schedule
 
 addAction :: IonAction -> Ion a -> Ion a
 addAction act s0 = do
@@ -31,10 +32,7 @@ addAction act s0 = do
   let temp = IonDef
              { ionId = ionId start
              , ionNum = ionNum start
-             , ionPhase =
-               case act of SetPhase Absolute _ ph -> ph
-                           SetPhase Relative _ ph -> ionPhase start + ph
-                           _ -> 0
+             , ionCtxt = modSchedule act $ ionCtxt start
              , ionDefs = return ()
              , ionTree = []
              }
@@ -46,9 +44,11 @@ addAction act s0 = do
               }
   return a
 
+getSched :: Ion Schedule
+getSched = ionCtxt <$> get
+
 getPhase :: Ion Integer
-getPhase = do s <- get
-              return $ ionPhase s
+getPhase = schedPhase <$> ionCtxt <$> get
 
 -- | Specify a name of a sub-node, returning the parent.
 ion :: String -- ^ Name

@@ -23,7 +23,7 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      exps = ionDef "test_ion" delayTest
+      exps = ionDef "test_ion" lostAttribBug
       mod = package "ion" $ ionModule exps
   catch
     (runCompiler [mod] [] ivoryOpts)
@@ -46,21 +46,21 @@ leakageBug = ion "leakageBug" $ do
 -- 'flattenSt' in hs *does* reset schedPhase and schedPeriod.
 lostAttribBug :: Ion ()
 lostAttribBug = period 200 $ ion "lostAttribBug" $ do
-  phase 100 $ do
-    p <- getPhase
+  phase 100 $ ion "moreStuff" $ do
+    p <- getSched
     ivoryEff $ do
       comment "Phase 100"
-      comment ("Reported phase " ++ show p)
+      comment ("Reported sched: " ++ show p)
     delay 3 $ do
-      p <- getPhase
+      p <- getSched
       ivoryEff $ do
         comment "Should be phase 103"
-        comment ("Reported phase " ++ show p)
-      delay 10 $ do
-        p <- getPhase
+        comment ("Reported sched: " ++ show p)
+      delay 10 $ ion "moreDelay" $ do
+        p <- getSched
         ivoryEff $ do
           comment "Should be phase 113"
-          comment ("Reported phase " ++ show p)
+          comment ("Reported sched: " ++ show p)
 
 baz :: Ion ()
 baz = ion "extBaz1" $ phase 10 $ do

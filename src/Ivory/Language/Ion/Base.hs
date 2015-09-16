@@ -25,14 +25,14 @@ data IonDef = IonDef { ionId :: String -- ^ Unique ID (used as base name)
                      , ionNum :: Int -- ^ Next unused number
                      , ionDefs :: IL.ModuleDef -- ^ Ivory definitions
                                   -- that the specifications produce
-                     , ionPhase :: Integer
+                     , ionCtxt :: Schedule -- ^ The 'inherited' context
                      , ionTree :: [IonTree] -- ^ A tree of specifications
                      }
 
 defaultIonDef = IonDef { ionId = ""
                        , ionNum = 0
                        , ionDefs = return ()
-                       , ionPhase = 0
+                       , ionCtxt = defaultSchedule
                        , ionTree = []
                        }
 

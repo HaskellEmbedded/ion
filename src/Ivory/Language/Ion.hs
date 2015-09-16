@@ -79,8 +79,10 @@ module Ivory.Language.Ion (
   , ion
   , cond
   , period
+  , getPhase
   , phase
-  , delay
+  -- Disabled for now because it's problematic:
+  -- , delay
   , ivoryEff
   , timer
   , newName
