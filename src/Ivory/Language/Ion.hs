@@ -16,8 +16,9 @@ need to be composed.
 
 To-do items:
 
-   * Put this code into sensible namespaces!
    * Continue writing documentation and examples!
+   * Explain the weird nesting behavior of 'delay' that I may just leave in.
+   * Get some unit tests for crap that I am prone to breaking.
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
 (This is partially done in 'flatten'.)
    * I can do a relative phase; what about a relative period? That is, a
@@ -43,7 +44,8 @@ Ion should operate - synchronously and atomically.
 
 Things to consider (copied from ProcSeq):
 
-   * How would I represent a long non-blocking delay in this?
+   * This is done but needs testing and an example: How would I represent a
+long non-blocking delay in this?
    * It's still a bit cumbersome when combining together Ivory procedures of
 different types, though my 'adapt_x_y' calls help somewhat.
    * This is done, but needs a good example:

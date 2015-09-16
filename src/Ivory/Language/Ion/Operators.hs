@@ -33,6 +33,12 @@ addAction act s0 = do
              { ionId = ionId start
              , ionNum = ionNum start
              , ionCtxt = modSchedule act $ ionCtxt start
+                         -- This propagates the context, but right now it
+                         -- just mimics what flatten/flattenTree already do.
+                         -- I'm not totally sure this is correct.
+                         -- It should however be possible to replace 'ionTree'
+                         -- and IonAction, and simply generate the tree right
+                         -- here.
              , ionDefs = return ()
              , ionTree = []
              }
