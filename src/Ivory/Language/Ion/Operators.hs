@@ -23,20 +23,19 @@ import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
 
 import           Ivory.Language.Ion.Base
 
+{-
 addAction_ :: IonAction -> IonM a -> IonM a
 addAction_ act = mapWriter f
   where f (a, def) = (a, def { ionTree = [Tree.Node act $ ionTree def] })
+-}
 
 addAction :: IonAction -> Ion a -> Ion a
 addAction act s0 = do
   -- Get the current state, and transform it with the input 'Ion':
-  m <- runStateT s0 <$> get
+  (a, def) <- runState s0 <$> get
   -- Set the next state from the ending state of 'runStateT':
-  let (v, _) = runWriter m
-  put $ snd v
-  -- and insert the generated 'Ion':
-  lift $ addAction_ act $ liftM fst m
-  -- FIXME: Clean up the above and make it easier to comprehend
+  put $ def { ionTree = [Tree.Node act $ ionTree def] }
+  return a
 
 -- | Specify a name of a sub-node, returning the parent.
 ion :: String -- ^ Name
@@ -85,9 +84,9 @@ ivoryEff iv = addAction (IvoryEff iv) $ return ()
 -- | Retrieve a name that will be unique for this instance.
 newName :: Ion String
 newName = do state <- get
-             let num' = seqNum state
-             put state { seqNum = num' + 1 }
-             return $ seqId state ++ "_" ++ show num'
+             let num' = ionNum state
+             put $ state { ionNum = num' + 1 }
+             return $ ionId state ++ "_" ++ show num'
 
 -- | Allocate a 'IL.MemArea' for this 'Ion', returning a reference to it.
 -- If the initial value fails to specify the type of this, then an
@@ -101,9 +100,8 @@ area' :: (IL.IvoryArea area, IL.IvoryZero area) =>
          -> Ion (IL.Ref IL.Global area)
 area' name init = do
   let mem = IL.area name init
-  tell $ IonDef { ionDefs = IL.defMemArea mem
-                , ionTree = []
-                }
+  state <- get
+  put $ state { ionDefs = ionDefs state >> IL.defMemArea mem }
   return $ IL.addrOf mem
 
 -- | Same as 'area'', but with an initial 'IL.Proxy' to disambiguate
@@ -134,10 +132,9 @@ newAreaP _ = newArea
 newProc :: (IvoryProcDef proc impl) => impl -> Ion (Def proc)
 newProc impl = do
   name <- newName
+  state <- get
   let fn sym = IL.proc sym impl
-  tell $ IonDef { ionDefs = IL.incl $ fn name
-                , ionTree = []
-                }
+  put $ state { ionDefs = ionDefs state >> (IL.incl $ fn name) }
   return $ fn name
 
 -- | 'newProc' with an initial 'Proxy' to disambiguate the procedure type

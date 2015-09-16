@@ -68,10 +68,10 @@ flattenTree ctxt (Tree.Node action forest) = this : rest
   where this = modSchedule action ctxt
         rest = join $ map (flattenTree this) forest
 
--- | Produce a flat list of scheduled actions from an 'IonM'.
-flatten :: IonM a -> [Schedule]
+-- | Produce a flat list of scheduled actions.
+flatten :: IonDef -> [Schedule]
 flatten i = uniqueIds 0 $ prune $ join $
-            map (flattenTree defaultSchedule) $ ionTree $ execWriter i
+            map (flattenTree defaultSchedule) $ ionTree i
 
 -- | Prune any schedule item that has no Ivory actions.
 prune :: [Schedule] -> [Schedule]

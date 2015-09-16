@@ -20,27 +20,14 @@ import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
 
 -- | This wraps 'Ion' with the ability to create unique C identifier names.
-type Ion = StateT SeqState IonM
+type Ion = State IonDef
 
-data SeqState = SeqState { seqId :: String -- ^ Unique ID (used as base name)
-                         , seqNum :: Int -- ^ Next unused number
-                         } deriving (Show)
-
--- | 'IonM' accumulates contents of an 'IonDef'
-type IonM = Writer IonDef
-
-data IonDef = IonDef { ionDefs :: IL.ModuleDef -- ^ Ivory definitions
+data IonDef = IonDef { ionId :: String -- ^ Unique ID (used as base name)
+                     , ionNum :: Int -- ^ Next unused number
+                     , ionDefs :: IL.ModuleDef -- ^ Ivory definitions
                                   -- that the specifications produce
                      , ionTree :: [IonTree] -- ^ A tree of specifications
                      }
-
-instance Monoid IonDef where
-  mempty = IonDef { ionDefs = mempty
-                  , ionTree = []
-                  }
-  mappend a b = IonDef { ionDefs = mappend (ionDefs a) (ionDefs b)
-                       , ionTree = mappend (ionTree a) (ionTree b)
-                       }
 
 -- | A tree of commands, some of which apply hierarchically.  For instance,
 -- setting a name ('SetName') adds a prefix the path to all branches

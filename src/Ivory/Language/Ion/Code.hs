@@ -53,18 +53,21 @@ ionDef :: String -- ^ Name for schedule function
           -> IonExports a
 ionDef name s = IonExports { ionEntry = entryProc
                            , ionModule = mod
-                           , ionValue = fst v
+                           , ionValue = a
                            }
-  where init = SeqState { seqId = name, seqNum = 0 }
+  where init = IonDef { ionId = name
+                      , ionNum = 0
+                      , ionDefs = return ()
+                      , ionTree = []
+                      }
         -- FIXME: 'init' should probably not be hard-coded.
         -- i0 :: Ion (a, SeqState)
-        i0 = runStateT s init
-        (v, def) = runWriter i0
+        (a, def) = runState s init
         mod = do ionDefs def
                  incl entryProc
                  mapM_ incl schedFns
                  mapM_ counterDef nodes
-        nodes = flatten i0
+        nodes = flatten def
         -- FIXME: This shouldn't just be taking the head node, and we should
         -- probably also not hard-code defaultSchedule.
         -- The entry procedure for running the schedule:
