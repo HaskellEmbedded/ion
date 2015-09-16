@@ -20,7 +20,6 @@ To-do items:
    * Explain the weird nesting behavior of 'delay' that I may just leave in.
    * Get some unit tests for crap that I am prone to breaking.
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
-(This is partially done in 'flatten'.)
    * I can do a relative phase; what about a relative period? That is, a
 period which is relative not to the base rate, but to the last rate that was
 inherited.
@@ -41,12 +40,7 @@ blocked from taking effect, or does it partially take effect?  When is the
 condition considered as being evaluated?  Right now it is evaluated at every
 single sub-node that inherits it.  I consider this to be a violation of how
 Ion should operate - synchronously and atomically.
-   * Operators.hs has notes of some cleanup that should (probably) occur.
-Particularly, I have some duplication with commands being applied to a
-'Schedule' both to track context, and to later process the tree.  I also
-have concerns with correctness here.  The context tracking is to make certain
-things available within the monad, such as phase, though they're not actually
-computed until later.
+   * ivoryEff could meaningfully return a value - maybe - rather than ().
 
 Things to consider (copied from ProcSeq):
 

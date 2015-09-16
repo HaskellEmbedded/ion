@@ -12,7 +12,6 @@ module Ivory.Language.Ion.Base where
 
 import           Control.Exception
 import           Control.Monad.State hiding ( forever )
-import qualified Data.Tree as Tree
 import           Data.Typeable
 
 import qualified Ivory.Language as IL
@@ -26,8 +25,6 @@ data IonDef = IonDef { ionId :: String -- ^ Unique ID (used as base name)
                      , ionDefs :: IL.ModuleDef -- ^ Ivory definitions
                        -- that the specifications produce
                      , ionCtxt :: Schedule -- ^ The 'inherited' context
-                     , ionTree :: [IonTree] -- ^ A tree of commands; right now
-                       -- this is redundant with 'ionSched'.
                      , ionSched :: [Schedule] -- ^ A flat list of
                        -- schedule items generated along the way.
                      }
@@ -36,7 +33,6 @@ defaultIonDef = IonDef { ionId = ""
                        , ionNum = 0
                        , ionDefs = return ()
                        , ionCtxt = defaultSchedule
-                       , ionTree = []
                        , ionSched = []
                        }
 
@@ -72,7 +68,7 @@ defaultSchedule = Schedule { schedId = 0
 -- underneath; setting a period ('SetPeriod') will set the period of
 -- all branches underneath, provided something else underneath does
 -- not override.  ('modSchedule' contains the specific rules.)
-type IonTree = Tree.Tree IonAction
+-- type IonTree = Tree.Tree IonAction
 
 -- | The type of Ivory action that an 'IonNode' can support. Note that this
 -- purposely forbids breaking, returning, and allocating.

@@ -11,10 +11,9 @@ Copyright: (c) 2015 Chris Hodapp
 module Ivory.Language.Ion.Operators where
 
 import           Control.Applicative ( (<$>) )
+import           Control.Exception
 import           Control.Monad
 import           Control.Monad.State hiding ( forever )
-import qualified Data.Tree as Tree
-import           Debug.Trace
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
@@ -23,6 +22,7 @@ import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
 
 import           Ivory.Language.Ion.Base
 import           Ivory.Language.Ion.Schedule
+import           Ivory.Language.Ion.Util
 
 addAction :: (Schedule -> Schedule) -> Ion a -> Ion a
 addAction fn sub = do
@@ -33,22 +33,16 @@ addAction fn sub = do
              { ionId = ionId start
              , ionNum = ionNum start
              , ionCtxt = fn $ ionCtxt start
-                         -- FIXME: This propagates the context, but
-                         -- right now it just mimics what
-                         -- flatten/flattenTree already do.  I'm not
-                         -- totally sure this is correct.  It should
-                         -- however be possible to replace 'ionTree'
-                         -- and IonAction, and simply generate the
-                         -- tree right here.
+                         -- FIXME: How much is ionCtxt needed, considering
+                         -- that we copy it?
              , ionDefs = return ()
-             , ionTree = []
              , ionSched = [fn $ ionCtxt start]
              }
       (a, def) = runState sub temp
   -- Append the state from the sub-node:
   put $ start { ionNum = ionNum def
               , ionDefs = ionDefs start >> ionDefs def
-              , ionTree = [] -- ionTree start ++ [Tree.Node act $ ionTree def]
+              -- , ionTree = ionTree start ++ [Tree.Node act $ ionTree def]
               , ionSched = ionSched start ++ ionSched def
               }
   return a
@@ -63,7 +57,12 @@ getPhase = schedPhase <$> ionCtxt <$> get
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
-ion = addAction . modSchedule . SetName
+ion name = addAction setName
+  where setName sch = case checkCName name of
+          Just i -> throw $ InvalidCName (schedPath sch) name i
+          Nothing -> sch { schedName = name
+                         , schedPath = schedPath sch ++ [name]
+                         }
 
 -- | Specify a relative phase (i.e. a delay past the last phase), returning
 -- the parent.  (The sub-node may readily override this phase.)
@@ -71,15 +70,13 @@ delay :: Integral i =>
          i -- ^ Relative phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-delay = addAction . modSchedule . SetPhase Relative Exact . fromIntegral
-
--- | Specify a period for a sub-node, returning the parent. (The sub-node may
--- readily override this period.)
-period :: Integral i =>
-          i -- ^ Period
-          -> Ion a -- ^ Sub-node
-          -> Ion a
-period = addAction . modSchedule . SetPeriod . fromIntegral
+delay ph = addAction setDelay
+  where setDelay sch =
+          let ph' = schedPhase sch + fromIntegral ph
+          in if (ph' >= schedPeriod sch)
+             then throw $
+                  PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
+             else sch { schedPhase = ph' }
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
@@ -87,21 +84,38 @@ phase :: Integral i =>
          i -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase = addAction . modSchedule . SetPhase Absolute Exact . toInteger
--- FIXME: This needs to comprehend the different phase types.
+phase ph = addAction setPhase
+  where setPhase sch =
+          let ph' = fromIntegral ph
+          in if (ph' >= schedPeriod sch)
+             then throw $
+                  PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
+             else sch { schedPhase = ph' }
+-- FIXME: This is mostly redundant with 'delay'.
+
+-- | Specify a period for a sub-node, returning the parent. (The sub-node may
+-- readily override this period.)
+period :: Integral i =>
+          i -- ^ Period
+          -> Ion a -- ^ Sub-node
+          -> Ion a
+period p = addAction setPeriod
+  where setPeriod sch = sch { schedPeriod = fromIntegral p }
 
 -- | Combinator which simply ignores the node.  This is intended to mask off
 -- some part of a spec.
 disable :: Ion a -> Ion a
-disable = addAction $ modSchedule Disable
+disable = undefined
 
 -- | Combinator to attach a condition to a sub-node
 cond :: IvoryAction IL.IBool -> Ion a -> Ion a
-cond = addAction . modSchedule . AddCondition
+cond pred = addAction setCond
+  where setCond sch = sch { schedCond = pred : schedCond sch }
 
 -- | Turn an Ivory effect into an 'Ion'.
 ivoryEff :: IvoryAction () -> Ion ()
-ivoryEff iv = addAction (modSchedule (IvoryEff iv)) $ return ()
+ivoryEff iv = addAction addEff $ return ()
+  where addEff sch = sch { schedAction = schedAction sch ++ [iv] }
 
 -- | Retrieve a name that will be unique for this instance.
 newName :: Ion String
