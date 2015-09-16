@@ -33,8 +33,6 @@ Is this okay?  Should we make this more flexible somehow?  (I feel like Atom
 did it similarly, with V & E.)
    * Pretty-printing the schedule itself (as Atom does) would probably be a
 good idea.
-   * Atom contained a way to retrieve the current period and phase inside the
-monad; I should implement this.
    * Consider the case where you put a condition on a node, and that node
 has many sub-nodes across various delays.  Now, suppose that that condition
 becomes false somewhere in the middle of those delays.  Is the entire node
@@ -48,22 +46,12 @@ Things to consider (copied from ProcSeq):
    * How would I represent a long non-blocking delay in this?
    * It's still a bit cumbersome when combining together Ivory procedures of
 different types, though my 'adapt_x_y' calls help somewhat.
-   * In my SPI example, I send an opcode along with a length and an expected
+   * This is done, but needs a good example:
+In my SPI example, I send an opcode along with a length and an expected
 length to read back.  This call is async, and the return continuation receives
 the number of bytes actually read.  I want to check this number at the return
 continuation - and I'd like to avoid having to write this manually for every
 case and repeat the number of expected bytes.  How would I represent this?
-   * I still don't have a solution for making 'Ion' and 'ProcSeq' play nice
-together.  Particularly: 'ProcSeq', to use something like a timer, must get one
-of its functions embedded in an 'Ion' somehow.  This can't be passed as a C
-value, since the value would have to persist past a function's lifetime, and
-Ivory doesn't permit storing a function pointer in a global.  Second: The 'Ion'
-must be accessible outside of the 'ProcSeq' so that it can either have its code
-and its entry function generated directly, or else be embedded in some larger
-'Ion' spec which takes care of this.  Generally, this means two things must
-come out of that 'ProcSeq': an 'Ion' spec that takes care of the timer, and
-an entry function (because how else would one access any of its
-functionality?).
 
 -}
 
