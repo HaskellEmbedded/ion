@@ -23,7 +23,7 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      exps = ionDef "test_ion" leakageBug
+      exps = ionDef "test_ion" delayTest
       mod = package "ion" $ ionModule exps
   catch
     (runCompiler [mod] [] ivoryOpts)
@@ -47,11 +47,20 @@ leakageBug = ion "leakageBug" $ do
 lostAttribBug :: Ion ()
 lostAttribBug = period 200 $ ion "lostAttribBug" $ do
   phase 100 $ do
-    ivoryEff $ comment "Phase 100"
+    p <- getPhase
+    ivoryEff $ do
+      comment "Phase 100"
+      comment ("Reported phase " ++ show p)
     delay 3 $ do
-      ivoryEff $ comment "Should be phase 103"
+      p <- getPhase
+      ivoryEff $ do
+        comment "Should be phase 103"
+        comment ("Reported phase " ++ show p)
       delay 10 $ do
-        ivoryEff $ comment "Should be phase 113"
+        p <- getPhase
+        ivoryEff $ do
+          comment "Should be phase 113"
+          comment ("Reported phase " ++ show p)
 
 baz :: Ion ()
 baz = ion "extBaz1" $ phase 10 $ do
@@ -63,7 +72,7 @@ baz2 = phase 10 $ ion "extBaz2" $ do
   ivoryEff $ comment "should be phase 10"
 
 delayTest :: Ion ()
-delayTest = ion "delayTest" $ do
+delayTest = ion "delayTest" $ period 100 $ do
   ivoryEff $ comment "should be phase 0"
   delay 10 $ ion "named" $ ivoryEff $ comment "delay 10 #1"
   delay 10 $ ivoryEff $ comment "delay 10 #2"

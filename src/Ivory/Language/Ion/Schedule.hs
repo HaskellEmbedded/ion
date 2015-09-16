@@ -15,33 +15,6 @@ import qualified Ivory.Language as IL
 import           Ivory.Language.Ion.Base
 import           Ivory.Language.Ion.Util
 
--- | A scheduled action.  Phase and period here are absolute, and there are no
--- child nodes.
-data Schedule =
-  Schedule { schedId :: Integer -- ^ A unique ID for this action
-           , schedName :: String -- ^ Name (without any disambiguation applied)
-           , schedPath :: [String] -- ^ A list of names giving the trail that
-             -- produced this schedule
-           , schedPhase :: Integer -- ^ The (absolute & exact) phase of this
-             -- action
-           , schedPeriod :: Integer -- ^ The period of this action
-           , schedAction :: [IvoryAction ()] -- ^ The Ivory effects for this
-                            -- action
-           , schedCond :: [IvoryAction IL.IBool] -- ^ Ivory effects which all
-                          -- must return 'true' for anything in 'schedAction'
-                          -- to execute
-           }
-  deriving (Show)
-
-defaultSchedule = Schedule { schedId = 0
-                           , schedName = "root"
-                           , schedPath = []
-                           , schedPhase = 0
-                           , schedPeriod = 1
-                           , schedAction = []
-                           , schedCond = []
-                           }
-
 -- | Transform a 'Schedule' according to an 'IonAction'.
 modSchedule :: IonAction -> Schedule -> Schedule
 modSchedule (IvoryEff eff) s = s { schedAction = schedAction s ++ [eff] }

@@ -28,17 +28,27 @@ addAction act s0 = do
   start <- get
   -- Keep the name & ID of our starting state, but start from no
   -- ModuleDef and no tree:
-  let (a, def) = runState s0 $ IonDef { ionId = ionId start
-                                      , ionNum = ionNum start
-                                      , ionDefs = return ()
-                                      , ionTree = []
-                                      }
+  let temp = IonDef
+             { ionId = ionId start
+             , ionNum = ionNum start
+             , ionPhase =
+               case act of SetPhase Absolute _ ph -> ph
+                           SetPhase Relative _ ph -> ionPhase start + ph
+                           _ -> 0
+             , ionDefs = return ()
+             , ionTree = []
+             }
+      (a, def) = runState s0 temp
   -- Append the state from the sub-node:
   put $ start { ionNum = ionNum def
               , ionDefs = ionDefs start >> ionDefs def
               , ionTree = ionTree start ++ [Tree.Node act $ ionTree def]
               }
   return a
+
+getPhase :: Ion Integer
+getPhase = do s <- get
+              return $ ionPhase s
 
 -- | Specify a name of a sub-node, returning the parent.
 ion :: String -- ^ Name

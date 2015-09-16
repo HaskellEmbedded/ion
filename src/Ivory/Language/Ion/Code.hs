@@ -54,14 +54,9 @@ ionDef name s = IonExports { ionEntry = entryProc
                            , ionModule = mod
                            , ionValue = a
                            }
-  where init = IonDef { ionId = name
-                      , ionNum = 0
-                      , ionDefs = return ()
-                      , ionTree = []
-                      }
-        -- FIXME: 'init' should probably not be hard-coded.
+  where -- FIXME: 'defaultIonDef' should probably not be hard-coded.
         -- i0 :: Ion (a, SeqState)
-        (a, def) = runState s init
+        (a, def) = runState s $ defaultIonDef { ionId = name }
         mod = do ionDefs def
                  incl entryProc
                  mapM_ incl schedFns

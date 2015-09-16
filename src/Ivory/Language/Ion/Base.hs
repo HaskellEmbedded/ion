@@ -25,8 +25,43 @@ data IonDef = IonDef { ionId :: String -- ^ Unique ID (used as base name)
                      , ionNum :: Int -- ^ Next unused number
                      , ionDefs :: IL.ModuleDef -- ^ Ivory definitions
                                   -- that the specifications produce
+                     , ionPhase :: Integer
                      , ionTree :: [IonTree] -- ^ A tree of specifications
                      }
+
+defaultIonDef = IonDef { ionId = ""
+                       , ionNum = 0
+                       , ionDefs = return ()
+                       , ionPhase = 0
+                       , ionTree = []
+                       }
+
+-- | A scheduled action.  Phase and period here are absolute, and there are no
+-- child nodes.
+data Schedule =
+  Schedule { schedId :: Integer -- ^ A unique ID for this action
+           , schedName :: String -- ^ Name (without any disambiguation applied)
+           , schedPath :: [String] -- ^ A list of names giving the trail that
+             -- produced this schedule
+           , schedPhase :: Integer -- ^ The (absolute & exact) phase of this
+             -- action
+           , schedPeriod :: Integer -- ^ The period of this action
+           , schedAction :: [IvoryAction ()] -- ^ The Ivory effects for this
+                            -- action
+           , schedCond :: [IvoryAction IL.IBool] -- ^ Ivory effects which all
+                          -- must return 'true' for anything in 'schedAction'
+                          -- to execute
+           }
+  deriving (Show)
+
+defaultSchedule = Schedule { schedId = 0
+                           , schedName = "root"
+                           , schedPath = []
+                           , schedPhase = 0
+                           , schedPeriod = 1
+                           , schedAction = []
+                           , schedCond = []
+                           }
 
 -- | A tree of commands, some of which apply hierarchically.  For instance,
 -- setting a name ('SetName') adds a prefix the path to all branches
