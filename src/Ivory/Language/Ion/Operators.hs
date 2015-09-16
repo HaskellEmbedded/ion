@@ -15,6 +15,7 @@ import           Control.Monad
 import           Control.Monad.State hiding ( forever )
 import           Control.Monad.Writer
 import qualified Data.Tree as Tree
+import           Debug.Trace
 
 import qualified Ivory.Language as IL
 import qualified Ivory.Language.Monad as ILM
@@ -31,10 +32,21 @@ addAction_ act = mapWriter f
 
 addAction :: IonAction -> Ion a -> Ion a
 addAction act s0 = do
+  -- trace ("start = " ++ (show $ ionTree $ start)) $ return ()
+  start <- get
   -- Get the current state, and transform it with the input 'Ion':
-  (a, def) <- runState s0 <$> get
+  let next = IonDef { ionId = ionId start
+                    , ionNum = ionNum start
+                    , ionDefs = return ()
+                    , ionTree = []
+                    }
+      (a, def) = runState s0 next
+  -- trace ("def = " ++ (show $ ionTree $ def)) $ return ()
   -- Set the next state from the ending state of 'runStateT':
-  put $ def { ionTree = [Tree.Node act $ ionTree def] }
+  {- trace ("next = " ++ (show $ ionTree $ def)) $ -}
+  put $ start { ionDefs = ionDefs start >> ionDefs def
+              , ionTree = ionTree start ++ [Tree.Node act $ ionTree def]
+              }
   return a
 
 -- | Specify a name of a sub-node, returning the parent.
