@@ -25,14 +25,15 @@ import           Ivory.Language.Ion.Base
 import           Ivory.Language.Ion.Schedule
 
 addAction :: IonAction -> Ion a -> Ion a
-addAction act s0 = do
+addAction act sub = do
+  let fn = modSchedule act
   start <- get
   -- Keep the name & ID of our starting state, but start from no
   -- ModuleDef and no tree:
   let temp = IonDef
              { ionId = ionId start
              , ionNum = ionNum start
-             , ionCtxt = modSchedule act $ ionCtxt start
+             , ionCtxt = fn $ ionCtxt start
                          -- FIXME: This propagates the context, but
                          -- right now it just mimics what
                          -- flatten/flattenTree already do.  I'm not
@@ -42,12 +43,14 @@ addAction act s0 = do
                          -- tree right here.
              , ionDefs = return ()
              , ionTree = []
+             , ionSched = [fn $ ionCtxt start]
              }
-      (a, def) = runState s0 temp
+      (a, def) = runState sub temp
   -- Append the state from the sub-node:
   put $ start { ionNum = ionNum def
               , ionDefs = ionDefs start >> ionDefs def
               , ionTree = ionTree start ++ [Tree.Node act $ ionTree def]
+              , ionSched = ionSched start ++ ionSched def
               }
   return a
 

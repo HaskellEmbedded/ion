@@ -24,9 +24,12 @@ type Ion = State IonDef
 data IonDef = IonDef { ionId :: String -- ^ Unique ID (used as base name)
                      , ionNum :: Int -- ^ Next unused number
                      , ionDefs :: IL.ModuleDef -- ^ Ivory definitions
-                                  -- that the specifications produce
+                       -- that the specifications produce
                      , ionCtxt :: Schedule -- ^ The 'inherited' context
-                     , ionTree :: [IonTree] -- ^ A tree of specifications
+                     , ionTree :: [IonTree] -- ^ A tree of commands; right now
+                       -- this is redundant with 'ionSched'.
+                     , ionSched :: [Schedule] -- ^ A flat list of
+                       -- schedule items generated along the way.
                      }
 
 defaultIonDef = IonDef { ionId = ""
@@ -34,6 +37,7 @@ defaultIonDef = IonDef { ionId = ""
                        , ionDefs = return ()
                        , ionCtxt = defaultSchedule
                        , ionTree = []
+                       , ionSched = []
                        }
 
 -- | A scheduled action.  Phase and period here are absolute, and there are no

@@ -42,8 +42,8 @@ flattenTree ctxt (Tree.Node action forest) = this : rest
 
 -- | Produce a flat list of scheduled actions.
 flatten :: IonDef -> [Schedule]
-flatten i = uniqueIds 0 $ prune $ join $
-            map (flattenTree defaultSchedule) $ ionTree i
+flatten i = uniqueIds 0 $ prune $ ionSched i
+            -- join $ map (flattenTree defaultSchedule) $ ionTree i
 
 -- | Prune any schedule item that has no Ivory actions.
 prune :: [Schedule] -> [Schedule]
