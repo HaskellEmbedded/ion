@@ -24,9 +24,8 @@ import           Ivory.Language.Proc ( Def(..), Proc(..), IvoryCall_,
 import           Ivory.Language.Ion.Base
 import           Ivory.Language.Ion.Schedule
 
-addAction :: IonAction -> Ion a -> Ion a
-addAction act sub = do
-  let fn = modSchedule act
+addAction :: (Schedule -> Schedule) -> Ion a -> Ion a
+addAction fn sub = do
   start <- get
   -- Keep the name & ID of our starting state, but start from no
   -- ModuleDef and no tree:
@@ -49,7 +48,7 @@ addAction act sub = do
   -- Append the state from the sub-node:
   put $ start { ionNum = ionNum def
               , ionDefs = ionDefs start >> ionDefs def
-              , ionTree = ionTree start ++ [Tree.Node act $ ionTree def]
+              , ionTree = [] -- ionTree start ++ [Tree.Node act $ ionTree def]
               , ionSched = ionSched start ++ ionSched def
               }
   return a
@@ -64,7 +63,7 @@ getPhase = schedPhase <$> ionCtxt <$> get
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
-ion = addAction . SetName
+ion = addAction . modSchedule . SetName
 
 -- | Specify a relative phase (i.e. a delay past the last phase), returning
 -- the parent.  (The sub-node may readily override this phase.)
@@ -72,7 +71,7 @@ delay :: Integral i =>
          i -- ^ Relative phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-delay = addAction . SetPhase Relative Exact . fromIntegral
+delay = addAction . modSchedule . SetPhase Relative Exact . fromIntegral
 
 -- | Specify a period for a sub-node, returning the parent. (The sub-node may
 -- readily override this period.)
@@ -80,7 +79,7 @@ period :: Integral i =>
           i -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
-period = addAction . SetPeriod . fromIntegral
+period = addAction . modSchedule . SetPeriod . fromIntegral
 
 -- | Specify a phase for a sub-node, returning the parent. (The sub-node may
 -- readily override this phase.)
@@ -88,21 +87,21 @@ phase :: Integral i =>
          i -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase = addAction . SetPhase Absolute Exact . toInteger
+phase = addAction . modSchedule . SetPhase Absolute Exact . toInteger
 -- FIXME: This needs to comprehend the different phase types.
 
 -- | Combinator which simply ignores the node.  This is intended to mask off
 -- some part of a spec.
 disable :: Ion a -> Ion a
-disable = addAction Disable
+disable = addAction $ modSchedule Disable
 
 -- | Combinator to attach a condition to a sub-node
 cond :: IvoryAction IL.IBool -> Ion a -> Ion a
-cond = addAction . AddCondition
+cond = addAction . modSchedule . AddCondition
 
 -- | Turn an Ivory effect into an 'Ion'.
 ivoryEff :: IvoryAction () -> Ion ()
-ivoryEff iv = addAction (IvoryEff iv) $ return ()
+ivoryEff iv = addAction (modSchedule (IvoryEff iv)) $ return ()
 
 -- | Retrieve a name that will be unique for this instance.
 newName :: Ion String
