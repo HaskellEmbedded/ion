@@ -128,6 +128,16 @@ ionDef name s = IonExports { ionEntry = entryProc
                 -- True case (counter = 0):
                 callSched = AST.Call Ty.TyVoid Nothing
                             (AST.NameSym $ procName schFn) []
+                -- FIXME: I need to add a condition to 'callSched'
+                -- which checks any conditions on 'sch', and move
+                -- those conditions out of 'getIvory'.  I still need
+                -- to find a way of evaluating this condition only at
+                -- the proper time.  I may have to look at how Atom
+                -- did this.  The problem is that all of the calls to
+                -- sub-nodes are flattened in this function, and each
+                -- call must be handled separately.
+                -- I also must be mindful that I do not evaluate the Ivory
+                -- effect vastly more times than necessary.
                 reset = AST.Store ty var' $ AST.ExpLit $
                         AST.LitInteger $ fromIntegral (schedPeriod sch - 1)
                 -- False case:
