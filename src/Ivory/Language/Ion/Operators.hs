@@ -124,6 +124,19 @@ period p = addAction setPeriod
                         then throw $ PeriodMustBePositive (schedPath sch) p'
                         else sch { schedPeriod = p' }
 
+-- | Specify a sub-period for a sub-node - that is, the factor by which
+-- to multiply the inherited period.  A factor of 2, for instance,
+-- would execute the sub-node half as often as its parent.
+subPeriod :: Integral i =>
+             i -- ^ Factor by which to multiply period (must be positive)
+             -> Ion a -- ^ Sub-node
+             -> Ion a
+subPeriod f = addAction divPeriod
+  where divPeriod sch = let p = schedPeriod sch * fromIntegral f
+                        in if (p <= 0)
+                           then throw $ PeriodMustBePositive (schedPath sch) p
+                           else sch { schedPeriod = p }
+
 -- | Ignore a sub-node completely. This is intended to mask off some
 -- part of a spec while still leaving it present for compilation.
 -- Note that this disables only the scheduled effects of a node, and so it

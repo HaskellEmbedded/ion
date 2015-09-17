@@ -17,12 +17,8 @@ need to be composed.
 To-do items:
 
    * Continue writing documentation and examples!
-   * Explain the weird nesting behavior of 'delay' that I may just leave in.
-   * Get some unit tests for crap that I am prone to breaking.
+   * Get some unit tests for things that I am prone to breaking.
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
-   * I can do a relative phase; what about a relative period? That is, a
-period which is relative not to the base rate, but to the last rate that was
-inherited.
    * Atom treats everything within a node as happening at the same time, and I
 do not handle this yet, though I rather should.  This may be complicated - I
 may either need to process the Ivory effect to look at variable references, or
@@ -40,20 +36,7 @@ blocked from taking effect, or does it partially take effect?  When is the
 condition considered as being evaluated?  Right now it is evaluated at every
 single sub-node that inherits it.  I consider this to be a violation of how
 Ion should operate - synchronously and atomically.
-   * ivoryEff could meaningfully return a value - maybe - rather than ().
-
-Things to consider (copied from ProcSeq):
-
-   * This is done but needs testing and an example: How would I represent a
-long non-blocking delay in this?
-   * It's still a bit cumbersome when combining together Ivory procedures of
-different types, though my 'adapt_x_y' calls help somewhat.
-   * This is done, but needs a good example:
-In my SPI example, I send an opcode along with a length and an expected
-length to read back.  This call is async, and the return continuation receives
-the number of bytes actually read.  I want to check this number at the return
-continuation - and I'd like to avoid having to write this manually for every
-case and repeat the number of expected bytes.  How would I represent this?
+   * Could 'ivoryEff' meaningfully return a value to 'Ion' rather than ()?
 
 -}
 
@@ -78,19 +61,25 @@ module Ivory.Language.Ion (
     --          'ion' "phase0" $ 'phase' 0 $ do
     --              -- Everything here inherits period 100, phase 0, and
     --              -- a new path "top_level.sub_spec.phase0".
-    --          'phase' 20 $ do
-    --              -- Everything here inherits period 100, and phase 20
+    --          'phase' 20 $ 'phase' '30' $ do
+    --              -- Everything here inherits period 100, and phase 30
     --          'phase' 40 $ 'cond' (return true) $ do
     --              -- Everything here inherits period 100, phase 40, and
     --              -- a (rather vacuous) condition
     --          'disable' $ 'phase' 50 $ do
     --              -- This is all disabled.
     -- @
+    --
+    -- Note that more inner bindings override outer ones in the case
+    -- of 'phase', 'delay', 'period', and 'subPeriod'.  Applications
+    -- of 'cond' combine with each other as a logical @and@.
+    -- Applications of 'disable' are idempotent.
   , ion
   , phase
   , delay
-  , cond
   , period
+  , subPeriod
+  , cond
   , disable
     
     -- ** Memory & Procedures
