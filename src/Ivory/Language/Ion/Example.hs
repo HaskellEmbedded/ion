@@ -8,8 +8,6 @@ Copyright: (c) 2015 Chris Hodapp
 
 module Ivory.Language.Ion.Example where
 
-import           Control.Exception
-
 import           Ivory.Language
 import           Ivory.Compile.C.CmdlineFrontend
 
@@ -23,11 +21,7 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      exps = ionDef "test_ion" test
-      mod = package "ion" $ ionModule exps
-  catch
-    (runCompiler [mod] [] ivoryOpts)
-    $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
+  ionCompile ivoryOpts "example" test
 
 -- I observe problems with this spec if the 'modify' call used in
 -- 'flattenSt' in Ion.hs does *not* reset schedPhase and

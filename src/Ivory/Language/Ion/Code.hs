@@ -23,8 +23,10 @@ variable at 0, counting up, checking for each individual phase?
 {-# LANGUAGE TypeOperators #-}
 module Ivory.Language.Ion.Code where
 
+import           Control.Exception
 import           Control.Monad.State hiding ( forever )
 
+import qualified Ivory.Compile.C.CmdlineFrontend as IC
 import           Ivory.Language
 import           Ivory.Language.MemArea ( memSym )
 import           Ivory.Language.Monad ( emit )
@@ -45,6 +47,22 @@ data IonExports a = IonExports
 -- FIXME: Figure out why I must have 'ModuleDef' and a value twice.
 -- I'm basically just exporting an 'Ion' (but one that semantically is
 -- different) plus an entry procedure.
+
+-- | Helper function to generate code from an 'Ion' and run the Ivory compiler
+-- on it (or else output an exception message).  While I don't yet
+-- know any reason why it needs to, this also returns whatever value the
+-- 'Ion' returns.
+ionCompile :: IC.Opts -- ^ Options for 'IC.runCompiler'
+              -> String -- ^ Name for schedule function and module
+              -> Ion a -- ^ Spec
+              -> IO a
+ionCompile opts name spec = do
+  let exps = ionDef name spec
+      mod = package name $ ionModule exps
+  catch
+    (IC.runCompiler [mod] [] opts)
+    $ \e -> putStrLn ("Exception: " ++ show (e :: IonException))
+  return $ ionValue exps
 
 -- | Produce exports from the given 'Ion' specs.
 ionDef :: String -- ^ Name for schedule function

@@ -70,7 +70,7 @@ module Ivory.Language.Ion (
     -- ** Compositional
     -- | These functions all have @'Ion' a -> 'Ion' a@ (or similar) at the
     -- end of their type, and that is because they are meant to be
-    -- nested by function composition; for instance:
+    -- nested by function composition. For instance:
     --
     -- @
     -- 'ion' "top_level" $ do
