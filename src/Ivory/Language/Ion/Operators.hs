@@ -24,11 +24,13 @@ import           Ivory.Language.Ion.Base
 import           Ivory.Language.Ion.Schedule
 import           Ivory.Language.Ion.Util
 
+-- | Transform a sub-node according to a function which transforms
+-- 'Schedule' items, and then collect the state from it.
 addAction :: (Schedule -> Schedule) -> Ion a -> Ion a
 addAction fn sub = do
   start <- get
-  -- Keep the name & ID of our starting state, but start from no
-  -- ModuleDef and no tree:
+  -- 'Run' the sub-node, passing in a minimal starting state (except
+  -- for the unique ID & name):
   let temp = IonDef
              { ionId = ionId start
              , ionNum = ionNum start
@@ -39,7 +41,7 @@ addAction fn sub = do
              , ionSched = [fn $ ionCtxt start]
              }
       (a, def) = runState sub temp
-  -- Append the state from the sub-node:
+  -- Collect some of the state that the sub-node produced:
   put $ start { ionNum = ionNum def
               , ionDefs = ionDefs start >> ionDefs def
               -- , ionTree = ionTree start ++ [Tree.Node act $ ionTree def]
@@ -53,7 +55,10 @@ getSched = ionCtxt <$> get
 getPhase :: Ion Integer
 getPhase = schedPhase <$> ionCtxt <$> get
 
--- | Specify a name of a sub-node, returning the parent.
+-- | Specify a name of a sub-node, returning the parent.  This node
+-- name is used in the paths to the node and in some C identifiers in
+-- the generated C code; its purpose is mainly diagnostic and to help the
+-- C code be more comprehensible.
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
@@ -64,8 +69,19 @@ ion name = addAction setName
                          , schedPath = schedPath sch ++ [name]
                          }
 
--- | Specify a relative phase (i.e. a delay past the last phase), returning
--- the parent.  (The sub-node may readily override this phase.)
+-- | Specify a relative, minimum delay for a sub-node - i.e. a minimum
+-- offset past the phase that is inherited.  For instance, in the
+-- example,
+--
+-- @
+--     'phase' 20 $ do
+--        'phase' 40 $ foo
+--        'delay' 2 $ bar
+--        'delay' 2 $ baz
+-- @
+-- 
+-- @foo@ and @bar@ both run at a (minimum) phase of 22, because the
+-- entire @do@ block inherits that minimum phase.
 delay :: Integral i =>
          i -- ^ Relative phase
          -> Ion a -- ^ Sub-node
@@ -78,46 +94,61 @@ delay ph = addAction setDelay
                   PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
              else sch { schedPhase = ph' }
 
--- | Specify a phase for a sub-node, returning the parent. (The sub-node may
--- readily override this phase.)
+-- | Specify a minimum phase for a sub-node - that is, the earliest
+-- tick within a period that the sub-node should be scheduled at.
+-- Phase must be non-negative, and lower than the period.
 phase :: Integral i =>
          i -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
 phase ph = addAction setPhase
-  where setPhase sch =
-          let ph' = fromIntegral ph
-          in if (ph' >= schedPeriod sch)
-             then throw $
-                  PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
-             else sch { schedPhase = ph' }
+  where ph' = fromIntegral ph
+        setPhase sch =
+          if (ph' >= schedPeriod sch)
+          then throw $
+               PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
+          else sch { schedPhase = ph' }
 -- FIXME: This is mostly redundant with 'delay'.
 
--- | Specify a period for a sub-node, returning the parent. (The sub-node may
--- readily override this period.)
+-- | Specify a period for a sub-node - that is, the interval, in ticks, at
+-- which the sub-node is scheduled to repeat.  Period must be positive; a
+-- period of 1 indicates that the sub-node executes at every single clock
+-- tick.
 period :: Integral i =>
           i -- ^ Period
           -> Ion a -- ^ Sub-node
           -> Ion a
 period p = addAction setPeriod
-  where setPeriod sch = sch { schedPeriod = fromIntegral p }
+  where p' = fromIntegral p
+        setPeriod sch = if (p' <= 0)
+                        then throw $ PeriodMustBePositive (schedPath sch) p'
+                        else sch { schedPeriod = p' }
 
--- | Combinator which simply ignores the node.  This is intended to mask off
--- some part of a spec.
-disable :: Ion a -> Ion a
-disable = undefined
+-- | Ignore a sub-node completely. This is intended to mask off some
+-- part of a spec while still leaving it present for compilation.
+-- Note that this disables only the scheduled effects of a node, and so it
+-- has no effect on things like 'newProc'.
+disable :: Ion a -> Ion ()
+disable _ = return ()
+-- FIXME: Explain this better.  'disable' and 'cond' only apply to certain
+-- things.
 
--- | Combinator to attach a condition to a sub-node
+-- | Make a sub-node's execution conditional; if the given Ivory effect
+-- returns 'true' (as evaluated at the inherited phase and period),
+-- then this sub-node is active, and otherwise is not.  Multiple
+-- conditions may accumulate, in which case they combine with a
+-- logical @and@ (i.e. all of them must be true for the node to be active).
 cond :: IvoryAction IL.IBool -> Ion a -> Ion a
 cond pred = addAction setCond
   where setCond sch = sch { schedCond = pred : schedCond sch }
 
--- | Turn an Ivory effect into an 'Ion'.
+-- | Attach an Ivory effect to an 'Ion'.  This effect will execute at
+-- the inherited phase and period of the node.
 ivoryEff :: IvoryAction () -> Ion ()
 ivoryEff iv = addAction addEff $ return ()
   where addEff sch = sch { schedAction = schedAction sch ++ [iv] }
 
--- | Retrieve a name that will be unique for this instance.
+-- | Return a unique name.
 newName :: Ion String
 newName = do state <- get
              let num' = ionNum state
@@ -178,10 +209,13 @@ newProcP :: (IvoryProcDef proc impl) =>
             IL.Proxy (Def proc) -> impl -> Ion (Def proc)
 newProcP _ = newProc
 
--- | All the functions below are for generating procedures to adapt a procedure
--- of different numbers of arguments.  I am almost certain that a better way
--- exists than what I did below - probably using typeclasses and mimicking
--- what Ivory did to define the functions.
+-- | All the @adapt_X_Y@ functions adapt an Ivory procedure which
+-- takes @X@ arguments and returns nothing, into an Ivory procedure
+-- which takes @Y@ arguments.  If @X@ > @Y@ then zero is passed for
+-- the argument(s); if @Y@ < @X@ then the additional arguments are
+-- ignored.  The generated procedure is automatically included as
+-- part of the 'Ion' spec.  The main point of this is to simplify
+-- the chaining together of Ivory procedures.
 adapt_0_1 :: (IL.IvoryType a, IL.IvoryVar a) =>
              Def ('[] ':-> ()) -> Ion (Def ('[a] ':-> ()))
 adapt_0_1 fn0 = newProc $ \_ -> IL.body $ IL.call_ fn0
@@ -225,6 +259,10 @@ adapt_0_5 :: (IL.IvoryType a, IL.IvoryVar a, IL.IvoryType b, IL.IvoryVar b,
               IL.IvoryType e, IL.IvoryVar e) =>
              Def ('[] ':-> ()) -> Ion (Def ('[a,b,c,d,e] ':-> ()))
 adapt_0_5 fn0 = newProc $ \_ _ _ _ _ -> IL.body $ IL.call_ fn0
+
+-- FIXME: I am almost certain that a better way exists than what I did
+-- above - perhaps using typeclasses and mimicking what Ivory did to
+-- define the functions.
 
 -- | Create a timer resource.  The returned 'Ion' still must be called at
 -- regular intervals (e.g. by including it in a larger Ion spec that is

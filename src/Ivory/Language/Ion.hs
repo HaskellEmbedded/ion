@@ -66,15 +66,34 @@ module Ivory.Language.Ion (
   , ionDef
 
     -- * Operators
+    
+    -- ** Compositional
+    -- | These functions all have @'Ion' a -> 'Ion' a@ (or similar) at the
+    -- end of their type, and that is because they are meant to be
+    -- nested by function composition; for instance:
+    --
+    -- @
+    -- 'ion' "top_level" $ do
+    --     'ion' "sub_spec" $ 'period' 100 $ do
+    --          'ion' "phase0" $ 'phase' 0 $ do
+    --              -- Everything here inherits period 100, phase 0, and
+    --              -- a new path "top_level.sub_spec.phase0".
+    --          'phase' 20 $ do
+    --              -- Everything here inherits period 100, and phase 20
+    --          'phase' 40 $ 'cond' (return true) $ do
+    --              -- Everything here inherits period 100, phase 40, and
+    --              -- a (rather vacuous) condition
+    --          'disable' $ 'phase' 50 $ do
+    --              -- This is all disabled.
+    -- @
   , ion
+  , phase
+  , delay
   , cond
   , period
-  , getPhase
-  , phase
-  -- Disabled for now because it's problematic:
-  -- , delay
-  , ivoryEff
-  , timer
+  , disable
+    
+    -- ** Memory & Procedures
   , newName
   , newProc
   , newProcP
@@ -82,7 +101,15 @@ module Ivory.Language.Ion (
   , areaP'
   , newArea
   , newAreaP
+    
+    -- ** Effects
+  , ivoryEff
+    
+    -- ** Utilities
+  , timer
   , startTimer
+  , stopTimer
+  , getPhase
   , adapt_0_1
   , adapt_1_0
   , adapt_0_2

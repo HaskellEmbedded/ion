@@ -23,7 +23,7 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-      exps = ionDef "test_ion" lostAttribBug
+      exps = ionDef "test_ion" test
       mod = package "ion" $ ionModule exps
   catch
     (runCompiler [mod] [] ivoryOpts)
@@ -85,14 +85,23 @@ test :: Ion ()
 test = ion "Foo" $ do
 
   test <- areaP' (Proxy :: Proxy (Stored Uint16)) "testMem" Nothing
-  
+
+  leakageBug
+
+  lostAttribBug
+
   period 20 $ do
     ivoryEff $ comment "period 20a"
     ivoryEff $ comment "period 20b"
     ivoryEff $ comment "period 20c"
     ivoryEff $ comment "period 20d"
     period 30 $ ivoryEff $ comment "period 30 overwriting 20"
-  
+
+  period 1 $ disable $ do
+    ivoryEff $ comment "shouldn't appear in code"
+    period 30 $ ivoryEff $ comment "also shouldn't appear in code"
+    undefined
+
   -- Period 1:
   ion "Bar" $ do
     ivoryEff $ comment "Foo.Bar"
