@@ -5,8 +5,13 @@ Copyright: (c) 2015 Chris Hodapp
 
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Ivory.Language.Ion.Example where
+
+import           Data.Word
 
 import           Ivory.Language
 import           Ivory.Compile.C.CmdlineFrontend
@@ -22,12 +27,97 @@ main = do
                               , outDir = Nothing
                               }
   ionCompile ivoryOpts "example" test
+  ionCompile ivoryOpts "timer" exampleTimer
+  ionCompile ivoryOpts "chain" exampleChain
+  return ()
 
--- I observe problems with this spec if the 'modify' call used in
--- 'flattenSt' in Ion.hs does *not* reset schedPhase and
--- schedPeriod.
--- The bug goes away if that call does reset schedPhase and
--- schedPeriod.
+printf :: Def ('[IString] :-> Sint32)
+printf = importProc "printf" "stdio.h"
+
+-- This returns its own entry procedure (init).  The schedule procedure
+-- must be called at regular intervals for the timer to function.
+exampleTimer :: Ion (Def ('[] ':-> ()))
+exampleTimer = ion "timer" $ mdo
+  -- Note the use of 'mdo' so that we can define things in a more
+  -- logical order. (
+  
+  -- Timer is initialized with a Uint16; procedure called at
+  -- expiration is fixed at compile-time:
+  timer1 <- period 1 $ timer (Proxy :: Proxy Uint16) expire
+
+  -- Initialization procedure:
+  init <- newProc $ body $ do
+    -- Trigger the timer for 1000 ticks:
+    startTimer timer1 1000
+  
+  expire <- newProc $ body $ do
+    call_ printf "Timer expired!\r\n"
+
+  return init
+
+-- | This is an example of chaining together a variety of calls and
+-- async callbacks in continuation-passing style.
+exampleChain :: Ion (Def ('[] ':-> ()))
+exampleChain = mdo
+  let error :: Def ('[Uint32] :-> ())
+      error = importProc "assert_error" "foo.h"
+
+  -- Chain together four calls with different values.  The final
+  -- call is the 'success' function.
+  init <- exampleSend 0x1234 error =<<
+          adapt_0_1 =<< exampleSend 0x2345 error =<<
+          adapt_0_1 =<< exampleSend 0x3456 error =<<
+          adapt_0_1 =<< exampleSend 0x4567 error success
+  -- adapt_0_1 is required to match the success callback (which takes a
+  -- single Uint16) with the entry function of 'exampleSend' (which takes no
+  -- arguments).
+
+  success <- newProc $ \_ -> body $ do
+    call_ printf "All calls succeeded!\r\n"
+
+  return init
+
+-- | This definition accepts a payload to transmit, an error callback,
+-- and a success callback; it returns the entry function which
+-- transmits that value, awaits the async call, and if the result is
+-- correct, calls the success callback.  If any of these steps go
+-- wrong, it calls the error handler with an error code, and proceeds
+-- no further.
+exampleSend :: Word16 -- ^ Payload value (or something like that)
+               -> Def ('[Uint32] ':-> ()) -- ^ Error callback
+               -> Def ('[Uint16] ':-> ()) -- ^ Success callback
+               -> Ion (Def ('[] ':-> ()))
+exampleSend payload err succ = mdo
+  -- Make up a hypothetical function which takes a Uint16 payload to
+  -- transmit, and a function pointer to a callback.  It returns a
+  -- Uint32 that is an error code.  The function pointer itself takes
+  -- a Uint16 which is the value received, and returns nothing.
+  let transmit_async :: Def ('[Uint16, ProcPtr ('[Uint16] :-> ())] :-> Uint32)
+      transmit_async = importProc "transmit_async" "foo.h"
+
+  write <- newProc $ body $ do
+    comment $ "Transmit value: " ++ show payload
+    -- Tell transmit_async to transmit this, and call us back at 'recv'
+    -- (which we define after):
+    errCode <- call transmit_async (fromIntegral payload) $ procPtr recv
+    -- Check for a nonzero error code:
+    ifte_ (errCode /=? 0)
+      (call_ err errCode)
+      $ return ()
+
+  recv <- newProc $ \value -> body $ do
+    -- Say that hypothetically we should have received the same value
+    -- back, so check this first:
+    ifte_ (value /=? fromIntegral payload)
+      -- If a mismatch, then call the error handler with some code:
+      (call_ err 0x12345678)
+      -- Otherwise, call the success handler:
+      $ call_ succ value
+
+  return write
+
+-- Problems with this spec should be fixed but it's good to have
+-- around as an example:
 leakageBug :: Ion ()
 leakageBug = ion "leakageBug" $ do
   period 200 $ do
@@ -36,8 +126,8 @@ leakageBug = ion "leakageBug" $ do
     ion "otherstuff" $ ivoryEff $ do
       comment "Should be period 200 (inherited)"
 
--- I observe problems with this spec if the 'modify' call used in
--- 'flattenSt' in hs *does* reset schedPhase and schedPeriod.
+-- Likewise, problems with this spec should be fixed but it's good to
+-- have around as an example:
 lostAttribBug :: Ion ()
 lostAttribBug = period 200 $ ion "lostAttribBug" $ do
   phase 100 $ ion "moreStuff" $ do
