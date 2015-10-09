@@ -39,6 +39,16 @@ condition considered as being evaluated?  Right now it is evaluated at every
 single sub-node that inherits it.  I consider this to be a violation of how
 Ion should operate - synchronously and atomically.
    * Could 'ivoryEff' meaningfully return a value to 'Ion' rather than ()?
+   * Would it be possible to make a CFG for the continuation-passing style
+arrangements?  (Might Ivory have to handle this?)
+   * Runtime check: Schedule function being called twice in one clock tick.
+   * Runtime check: Schedule function never called in a clock tick.
+   * Runtime check: Schedule function hasn't returned yet when next clock
+tick occurs (i.e. schedule function takes too long).
+   * Runtime check: Compute percent utilization, time-wise, in schedule
+function.
+   * Compile-time check: Same period and phase occupied.  (Atom would throw
+a compile-time error when this happened.)
 
 -}
 
