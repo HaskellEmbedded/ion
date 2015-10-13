@@ -3,21 +3,65 @@ Module: Ion
 Description: Top-level Ion module
 Copyright: (c) 2015 Chris Hodapp
 
-Ion is a Haskell EDSL that is inspired by another EDSL,
-<https://hackage.haskell.org/package/atom Atom>.  Ion aims to be a
-re-implementation of Atom which, rather than generating C code
-directly (as Atom does), interfaces with another very powerful, more
-general EDSL, <http://ivorylang.org/ Ivory>.
+Ion is a Haskell EDSL for concurrent, realtime, embedded programming.
+It performs compile-time scheduling, and produces scheduling code
+with constant memory usage and deterministic execution (i.e. no
+possibility for divergence).
 
-It also contains support for sequencing and bundling related
-procedures together, particularly for cases when they call each other
-in continuation-passing style or rely on asynchronous callbacks - and
-need to be composed.
+It interfaces with another, more powerful EDSL, <http://ivorylang.org/
+Ivory>, to perform code generation.  Ivory is responsible for all the
+code generation to perform the scheduling.  One may also embed general
+Ivory effects in an Ion spec with few restrictions, however, it does
+very little to enforce constant memory usage or deterministic code
+here.
+
+Ion generates scheduling code which must be called at regular clock
+ticks (i.e. from a timer interrupt).  The interval of these clock
+ticks establishes the *base rate* of the system.  All scheduled events
+in the system take place relative to this base rate, defined in terms
+of 'period' (interval of repetition) and 'phase' (position within that
+interval).
+
+This functionality is expressed in the 'Ion' monad - in large part to
+allow composition and modularity in expressing tightly-scheduled
+functionality.  In addition, it has functions like 'newProc' and
+'newArea' which define uniquely-named C functions and globals.  The
+purpose of these is to allow that same compositional when working with
+Ivory definitions that are parametrized and may be instantiated
+multiple times.
+
+For instance, when dealing with functions that return via asynchronous
+callbacks or interrupts - a common thing on embedded systems - one
+must generally work in continuation-passing style.  This simplifies
+the process of creating a reusable pattern for a use-case like:
+
+1. Transmit instruction @I@ over SPI. Wait to receive 2 bytes.
+2. In a callback: Check that result for being an error condition.  If
+an error, call error handler function @E@.  If successful, transmit
+instruction @I2@ and wait to receive 2 bytes.
+3. In a callback: Check for error and call @E@ if needed.  If successful,
+combine result into some composite value, and call success handler @S@
+with that value.
+
+and then parametrizing this whole definition over instructions @I@ and
+@I2@, error handler @E@, and success handler @S@.  This definition
+then could be parametrized over multiple different instructions, and
+all of these chained together (e.g. via @(=<<)@) to create a larger
+sequence of calls passing control via CPS.
+
+Ion was heavily inspired by another EDSL,
+<https://hackage.haskell.org/package/atom Atom>. It started as an Atom
+re-implementation which had other backends, rather than generating C
+code directly (as Atom does).  However, Ion has diverged somewhat, and
+still does not have many things from Atom, such as synchronous
+variable access, run-time checks on execution time, various
+compile-time sanity checks, traces, or most of its standard library.
 
 To-do items:
 
    * Continue writing documentation and examples!
    * Get some unit tests for things that I am prone to breaking.
+   * It *still* does not handle 'minimum' phase.
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
    * Atom treats everything within a node as happening at the same time, and I
 do not handle this yet, though I rather should.  This may be complicated - I
