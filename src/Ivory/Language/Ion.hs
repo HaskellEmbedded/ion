@@ -98,11 +98,11 @@ a compile-time error when this happened.)
 
 module Ivory.Language.Ion (
     -- * Base types
-    Ion
+    Base.Ion
   
     -- * Code generation
-  , IonExports(..)
-  , ionDef
+  , Code.IonExports(..)
+  , Code.ionDef
 
     -- * Operators
     
@@ -130,45 +130,46 @@ module Ivory.Language.Ion (
     -- of 'phase', 'delay', 'period', and 'subPeriod'.  Applications
     -- of 'cond' combine with each other as a logical @and@.
     -- Applications of 'disable' are idempotent.
-  , ion
-  , phase
-  , delay
-  , period
-  , subPeriod
-  , cond
-  , disable
+  , Operators.ion
+  , Operators.phase
+  , Operators.delay
+  , Operators.period
+  , Operators.subPeriod
+  , Operators.cond
+  , Operators.disable
     
     -- ** Memory & Procedures
-  , newName
-  , newProc
-  , newProcP
-  , area'
-  , areaP'
-  , newArea
-  , newAreaP
+  , Operators.newName
+  , Operators.newProc
+  , Operators.newProcP
+  , Operators.area'
+  , Operators.areaP'
+  , Operators.newArea
+  , Operators.newAreaP
     
     -- ** Effects
-  , ivoryEff
+  , Operators.ivoryEff
     
     -- ** Utilities
-  , timer
-  , startTimer
-  , stopTimer
-  , getPhase
-  , adapt_0_1
-  , adapt_1_0
-  , adapt_0_2
-  , adapt_2_0
-  , adapt_0_3
-  , adapt_3_0
-  , adapt_0_4
-  , adapt_4_0
-  , adapt_0_5
+  , Operators.timer
+  , Operators.startTimer
+  , Operators.stopTimer
+  , Operators.getPhase
+  , Operators.adapt_0_1
+  , Operators.adapt_1_0
+  , Operators.adapt_0_2
+  , Operators.adapt_2_0
+  , Operators.adapt_0_3
+  , Operators.adapt_3_0
+  , Operators.adapt_0_4
+  , Operators.adapt_4_0
+  , Operators.adapt_0_5
+    -- Yes, the 'utilities' aren't in module Util. Whatever.
 
   ) where
 
-import Ivory.Language.Ion.Base
-import Ivory.Language.Ion.Code
-import Ivory.Language.Ion.Example
-import Ivory.Language.Ion.Operators
-import Ivory.Language.Ion.Util
+import qualified Ivory.Language.Ion.Base as Base
+import qualified Ivory.Language.Ion.Code as Code
+import qualified Ivory.Language.Ion.Example as Example
+import qualified Ivory.Language.Ion.Operators as Operators
+import qualified Ivory.Language.Ion.Util as Util
