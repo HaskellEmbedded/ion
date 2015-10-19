@@ -69,6 +69,13 @@ ion name = addAction setName
                          , schedPath = schedPath sch ++ [name]
                          }
 
+phaseSet :: Integral i => i -> Schedule -> Schedule
+phaseSet ph sch = if (ph' >= schedPeriod sch)
+                  then throw $
+                       PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
+                  else sch { schedPhase = ph' }
+  where ph' = fromIntegral ph
+
 -- | Specify a relative, minimum delay for a sub-node - i.e. a minimum
 -- offset past the phase that is inherited.  For instance, in the
 -- example,
@@ -87,12 +94,7 @@ delay :: Integral i =>
          -> Ion a -- ^ Sub-node
          -> Ion a
 delay ph = addAction setDelay
-  where setDelay sch =
-          let ph' = schedPhase sch + fromIntegral ph
-          in if (ph' >= schedPeriod sch)
-             then throw $
-                  PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
-             else sch { schedPhase = ph' }
+  where setDelay sch = phaseSet (schedPhase sch + fromIntegral ph) sch
 
 -- | Specify a minimum phase for a sub-node - that is, the earliest
 -- tick within a period that the sub-node should be scheduled at.
@@ -101,14 +103,7 @@ phase :: Integral i =>
          i -- ^ Phase
          -> Ion a -- ^ Sub-node
          -> Ion a
-phase ph = addAction setPhase
-  where ph' = fromIntegral ph
-        setPhase sch =
-          if (ph' >= schedPeriod sch)
-          then throw $
-               PhaseExceedsPeriod (schedPath sch) ph' (schedPeriod sch)
-          else sch { schedPhase = ph' }
--- FIXME: This is mostly redundant with 'delay'.
+phase ph = addAction (phaseSet ph)
 
 -- | Specify a period for a sub-node - that is, the interval, in ticks, at
 -- which the sub-node is scheduled to repeat.  Period must be positive; a
