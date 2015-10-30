@@ -22,15 +22,15 @@ import           Ivory.Language.Ion.Base
 -- This is a common pattern for asynchronous calls, for instance, in
 -- which the callback or interrupt calls the continuation function.
 --
--- Multiple calls of this sort can be composed with '(<<=)' (and with
+-- Multiple calls of this sort can be composed with '(=<<)' (and with
 -- @RecursiveDo@ and 'mdo') to chain them in the order in which they
 -- would proceed.
 -- 
--- For instance, in @start <- call1 <<= call2 <<= call3 final@,
+-- For instance, in @start <- call1 =<< call2 =<< call3 final@,
 -- @start@ contains the entry function to @call1@, whose continuation
 -- is set to the entry function of @call2@, whose continuation in turn
 -- is set to the entry function of @call3@, whose continuation is
--- 'final'.  Note that chaining these with '(=<<)' is possible too,
+-- 'final'.  Note that chaining these with '(>>=)' is possible too,
 -- but the order is somewhat reversed from what is logical - hence,
 -- 'mdo' often being sensible here.
 type IonCont a b = Def (b ':-> ()) -- ^ Continuation function
