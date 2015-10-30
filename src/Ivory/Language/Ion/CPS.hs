@@ -41,3 +41,12 @@ type IonCont a b = Def (b ':-> ()) -- ^ Continuation function
 lift :: (IvoryType a, IvoryVar a, IvoryType b, IvoryVar b) =>
         (a -> b) -> IonCont '[a] '[b]
 lift f cont = newProc $ \a -> body $ call_ cont $ f a
+
+-- Another function that will be much more difficult to implement:
+join :: (a -> b -> c) -> IonCont t '[a] -> IonCont t '[b] -> IonCont t '[c]
+join _ _ _ = undefined
+
+-- This would implement a 'join point' of sorts.  The returned IonCont
+-- would not call its own continuation until the other two continuations
+-- (those of the first two IonCont arguments) have been called.  The entry
+-- function should call that of both of the arguments.
