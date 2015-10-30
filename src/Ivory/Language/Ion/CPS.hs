@@ -13,6 +13,7 @@ module Ivory.Language.Ion.CPS where
 import           Ivory.Language
 
 import           Ivory.Language.Ion.Base
+import           Ivory.Language.Ion.Operators
 
 -- | This wraps a pattern of functions calling each other in
 -- continuation-passing style.  The intent is that the returned entry
@@ -35,3 +36,8 @@ import           Ivory.Language.Ion.Base
 -- 'mdo' often being sensible here.
 type IonCont a b = Def (b ':-> ()) -- ^ Continuation function
                    -> Ion (Def (a ':-> ())) -- ^ Entry function
+
+-- | 'Lift' a Haskell function up into an 'IonCont'.
+lift :: (IvoryType a, IvoryVar a, IvoryType b, IvoryVar b) =>
+        (a -> b) -> IonCont '[a] '[b]
+lift f cont = newProc $ \a -> body $ call_ cont $ f a
