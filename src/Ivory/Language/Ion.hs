@@ -99,6 +99,7 @@ a compile-time error when this happened.)
 module Ivory.Language.Ion (
     -- * Base types
     Base.Ion
+  , CPS.IonCont
   
     -- * Code generation
   , Code.IonExports(..)
@@ -170,6 +171,7 @@ module Ivory.Language.Ion (
 
 import qualified Ivory.Language.Ion.Base as Base
 import qualified Ivory.Language.Ion.Code as Code
+import qualified Ivory.Language.Ion.CPS as CPS
 import qualified Ivory.Language.Ion.Example as Example
 import qualified Ivory.Language.Ion.Operators as Operators
 import qualified Ivory.Language.Ion.Util as Util

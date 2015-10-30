@@ -2,8 +2,8 @@ packages:
 - ./
 - location:
     git: https://github.com/GaloisInc/ivory.git
-    extra-dep: true
     commit: a6ba4cb852bddded6117b2d0c48574663f39f469
+  extra-dep: true
   subdirs:
   - ivory-stdlib
   - ivory-model-check

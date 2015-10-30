@@ -19,6 +19,7 @@ library
   exposed-modules:     Ivory.Language.Ion
                      , Ivory.Language.Ion.Base
                      , Ivory.Language.Ion.Code
+                     , Ivory.Language.Ion.CPS
                      , Ivory.Language.Ion.Example
                      , Ivory.Language.Ion.Operators
                      , Ivory.Language.Ion.Schedule
