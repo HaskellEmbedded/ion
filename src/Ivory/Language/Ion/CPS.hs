@@ -42,6 +42,44 @@ lift :: (IvoryType a, IvoryVar a, IvoryType b, IvoryVar b) =>
         (a -> b) -> IonCont '[a] '[b]
 lift f cont = newProc $ \a -> body $ call_ cont $ f a
 
+-- | 'Accumulate' an argument into a continuation function.
+-- Specifically: Given an 'IonCont' taking some argument in its entry
+-- function, generate another 'IonCont' with the same type of entry
+-- function, but whose continuation function contains another argument
+-- (which will receive the same value of that argument).
+-- 
+-- Note that every use of this requires a static variable of type 'a'.
+-- Also, this implementation does not protect against the continuation
+-- function being called without the entry function; if this occurs,
+-- the continuation will contain old values of 'a' from earlier
+-- invocations, or possibly a zero value.
+--
+-- TODO: Right now this handles only converting single-argument to
+-- double-argument.  I intend to modify this to work similarly to
+-- 'call' and 'callAux' in Ivory.
+accum :: (IvoryType a, IvoryVar a, IvoryStore a, IvoryZeroVal a,
+          IvoryType b, IvoryVar b) =>
+         IonCont '[] '[b] -> IonCont '[a] (a ': '[b]) 
+accum f_ab cont = do
+  -- Temporary variable to hold 'a' while waiting to be called back:
+  tempA <- newArea Nothing
+
+  -- Generate a new continuation which calls the continuation with the
+  -- temporary 'a' value:
+  cont2 <- newProc $ \b -> body $ do
+    a <- deref tempA
+    call_ cont a b
+
+  -- 'entry2' is the entry function using 'cont2' as the continuation:
+  entry2 <- f_ab cont2
+
+  -- And finally, the new entry function:
+  entry <- newProc $ \a -> body $ do
+    store tempA a
+    call_ entry2
+    
+  return entry
+
 -- Another function that will be much more difficult to implement:
 join :: (a -> b -> c) -> IonCont t '[a] -> IonCont t '[b] -> IonCont t '[c]
 join _ _ _ = undefined

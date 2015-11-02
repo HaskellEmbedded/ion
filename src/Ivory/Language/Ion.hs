@@ -167,6 +167,9 @@ module Ivory.Language.Ion (
   , Operators.adapt_0_5
     -- Yes, the 'utilities' aren't in module Util. Whatever.
 
+    -- ** CPS
+  , CPS.accum
+    
   ) where
 
 import qualified Ivory.Language.Ion.Base as Base
