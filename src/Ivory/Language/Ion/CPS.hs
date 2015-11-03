@@ -5,12 +5,19 @@ Copyright: (c) 2015 Chris Hodapp
 
 -}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeOperators #-}
 
 module Ivory.Language.Ion.CPS where
 
 import           Ivory.Language
+import           Ivory.Language.Proc
 
 import           Ivory.Language.Ion.Base
 import           Ivory.Language.Ion.Operators
@@ -69,6 +76,7 @@ accum f_ab cont = do
   cont2 <- newProc $ \b -> body $ do
     a <- deref tempA
     call_ cont a b
+    -- The above is what must vary with the signature.
 
   -- 'entry2' is the entry function using 'cont2' as the continuation:
   entry2 <- f_ab cont2
@@ -79,6 +87,49 @@ accum f_ab cont = do
     call_ entry2
     
   return entry
+
+accum_ :: forall e a args r .
+          (IvoryType a, IvoryVar a, IvoryStore a, IvoryZeroVal a,
+           IvoryProcDef (args ':-> ()) r) =>
+          IonCont e args -> IonCont (a ': e) (a ': args)
+accum_ f_ab cont = do
+  -- Temporary variable to hold 'a' while waiting to be called back:
+  -- tempA <- newArea Nothing
+  -- I would need to accumulate these somehow into an Ion, and also
+  -- to make them available in order to dereference & pass to a call.
+
+  -- Generate a new continuation which calls the continuation with the
+  -- temporary 'a' value:
+  cont2 <- newProc $ contAux (Proxy :: Proxy args)
+  -- \b -> body $ do
+    --a <- deref tempA
+    --call_ cont a b
+
+  -- 'entry2' is the entry function using 'cont2' as the continuation:
+  entry2 <- f_ab cont2
+
+  -- And finally, the new entry function:
+  entry <- newProc $ entryAux (Proxy :: Proxy e)
+  --  $ \a -> body $ do
+  --  store tempA a
+  --  call_ entry2
+    
+  return entry
+
+class Accum (cont :: [*]) (entry :: [*]) impl where
+  contAux :: Proxy cont -> impl
+  entryAux :: Proxy entry -> impl
+
+instance Accum '[] entry impl where
+  contAux _ = body $ do
+    _
+  entryAux _ = body $ do
+    _
+
+instance Accum cont entry impl =>
+         Accum (a ': cont) (a ': entry) (a -> impl) where
+  contAux _ = \a -> contAux (Proxy :: Proxy cont)
+  entryAux _ = \a -> entryAux (Proxy :: Proxy entry)
 
 -- Another function that will be much more difficult to implement:
 join :: (a -> b -> c) -> IonCont t '[a] -> IonCont t '[b] -> IonCont t '[c]
