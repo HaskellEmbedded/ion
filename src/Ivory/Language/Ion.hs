@@ -62,6 +62,8 @@ To-do items:
    * Continue writing documentation and examples!
    * Get some unit tests for things that I am prone to breaking.
    * It *still* does not handle 'minimum' phase.
+   * This could use a way to 'invert' a phase, and run at every phase but
+the ones noted.
    * I need to convert over the 'schedule' function in Scheduling.hs in Atom.
    * Atom treats everything within a node as happening at the same time, and I
 do not handle this yet, though I rather should.  This may be complicated - I
