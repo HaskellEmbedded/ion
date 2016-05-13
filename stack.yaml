@@ -1,25 +1,12 @@
 packages:
 - ./
-- location:
-    git: https://github.com/GaloisInc/ivory.git
-    commit: a6ba4cb852bddded6117b2d0c48574663f39f469
-  extra-dep: true
-  subdirs:
-  - ivory-stdlib
-  - ivory-model-check
-  - ivory-opts
-  - ivory-examples
-  - ivory-serialize
-  - ivory
-  - ivory-hw
-  - ivory-eval
-  - ivory-backend-c
-  - ivory-quickcheck
-  - ivory-artifact
-- location:
-    git: https://github.com/GaloisInc/ivory-backend-acl2.git
-    commit: fa6667b29d24da34e7f35448d7598cd704dde9ec
 extra-deps:
-- acl2-0.0.1
-- ghc-srcspan-plugin-0.2.1.0
-resolver: lts-2.21
+- ivory-0.1.0.3
+- ivory-artifact-0.1.0.3
+- ivory-backend-c-0.1.0.3
+- ivory-opts-0.1.0.3
+- language-c-quote-0.11.6
+- mainland-pretty-0.4.1.4
+- exception-mtl-0.4
+- symbol-0.2.4
+resolver: lts-5.3
