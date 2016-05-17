@@ -54,3 +54,5 @@ somewhat, and still does not have many things from Atom, such as
 synchronous variable access, run-time checks on execution time,
 various compile-time sanity checks, traces, or most of its standard
 library.
+
+[![Build Status](https://travis-ci.org/HaskellEmbedded/ion.svg?branch=master)](https://travis-ci.org/HaskellEmbedded/ion)
