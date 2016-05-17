@@ -22,7 +22,10 @@ before_script:
 - git config --global user.email "$GIT_EMAIL"
 - git config --global user.name "$GIT_NAME"
 
+script:
+- git --version
+- stack --version
+
 env:
   global:
     secure: TSqt4Q4MsINSeeBx01fVBlh8QpPcTLOUTKYIt89diRl3TicVuRPPci8GtIuXHtjnD5eeuqmhrn4PbaFE0eXiEOnkmgBTS2VH4hHlb+VKg/GPMbPamZBQCEvESk5nmKF3MWv65TIRJ8T9cLtN4Fipqo+uNMCC9HuWZkRB7YzGxnhPUsbQ5/UNPqQDxqD5oJl1wq6hFx1sE6Xz4a9P+otJzoK+e2KDyOHMKEWj17OASeEB/+B8+Jb1zPYsVhPCaQP8LtihFFzUPaEHhbxYyLd5YgvC/fKGRjnbiPOeDkZRuR4+ORxkqiq35AnzAt1kHIJ6rW23FJm5aCVxpSdb8uSYpu68WmGs6vYUw73P4B1o+5q+Nm4w3JuYt/c4UV8YCw0L0bZHCjHDXD1i5BTh0hYd2DrzShvHexFdQCUoGvq0pNqhGraWMZzvI+a5b4SCLdSgUVRcna251AzbvCOjWlFzWr6HXRXspjrwA99Wwsx3Cj5/F8uVxKNLB0yw3rMp6v4cSuWnIYtegbTaUH50jqKCyFoBsYzQwJI16KwpuOmWy5o+pITIWbdYK5BQ2EvQBl5lCqr6qUDhER+rWfpg4mQWENqNu5Zqb4qefDu+tAz/kJIj4AcKcOdSGuOoU1Yx1zX8FAUYs8ZZFPqSCNfuv1wOLRrNWKc2jeCSLFLzu7mH3Rg=
-
