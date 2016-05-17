@@ -23,7 +23,7 @@ This functionality is expressed in the 'Ion' monad - in large part to
 allow composition and modularity in expressing tightly-scheduled
 functionality.  In addition, it has functions like 'newProc' and
 'newArea' which define uniquely-named C functions and globals.  The
-purpose of these is to allow that same compositional when working with
+purpose of these is to allow that same composition when working with
 Ivory definitions that are parametrized and may be instantiated
 multiple times.
 
