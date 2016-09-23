@@ -2,18 +2,34 @@
 -- see http://haskell.org/cabal/users-guide/
 
 name:                ion
-version:             0.3.0.0
--- synopsis:            
--- description:         
--- license:             
--- license-file:        LICENSE
+version:             1.0.0.0
+synopsis: EDSL for concurrent, realtime, embedded programming on top of Ivory
+description:
+   Ion is a Haskell EDSL for concurrent, realtime, embedded programming.
+   It interfaces with the Ivory EDSL, <http://ivorylang.org/>, to perform
+   code generation.  It supports similar scheduling functionality to Atom
+   (<https://hackage.haskell.org/package/atom>), and also accomodates
+   asynchronous programming with continuation-passing style.
+
+   Be forewarned that Ion is still heavily experimental.  For some
+   further explanation, see the write-up at HaskellEmbedded,
+   <https://haskellembedded.github.io/posts/2016-09-23-introducing-ion.html>.
+license:             BSD3
+license-file:        LICENSE
+   
 author:              Chris Hodapp
 maintainer:          Hodapp87@gmail.com
+stability:           experimental
+homepage:            https://haskellembedded.github.io/
 -- copyright:           
--- category:            
+category:            Language, Embedded
 build-type:          Simple
 -- extra-source-files:  
 cabal-version:       >=1.10
+
+source-repository head
+  type: git
+  location: https://github.com/HaskellEmbedded/ion
 
 library
   exposed-modules:     Ivory.Language.Ion
@@ -25,9 +41,9 @@ library
                      , Ivory.Language.Ion.Util
   -- other-modules:       
   -- other-extensions:    
-  build-depends:       base
+  build-depends:       base >=4.6 && <5
                      , containers
-                     , ivory
+                     , ivory >= 0.1.0.0
                      , ivory-backend-c
                      , mtl
   hs-source-dirs:      src
