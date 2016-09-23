@@ -48,10 +48,10 @@ data IonExports a = IonExports
 -- I'm basically just exporting an 'Ion' (but one that semantically is
 -- different) plus an entry procedure.
 
--- | Helper function to generate code from an 'Ion' and run the Ivory compiler
--- on it (or else output an exception message).  While I don't yet
--- know any reason why it needs to, this also returns whatever value the
--- 'Ion' returns.
+-- | Helper function to generate code from an 'Ion' and run the Ivory
+-- compiler on it (or else output an exception message).  While I
+-- don't yet know any reason why it needs to, this also returns
+-- whatever value the 'Ion' returns.
 ionCompile :: IC.Opts -- ^ Options for 'IC.runCompiler'
               -> String -- ^ Name for schedule function and module
               -> Ion a -- ^ Spec

@@ -9,7 +9,7 @@ Copyright: (c) 2015 Chris Hodapp
 {-# LANGUAGE RecursiveDo #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Ivory.Language.Ion.Example where
+module Main where
 
 import           Data.Word
 

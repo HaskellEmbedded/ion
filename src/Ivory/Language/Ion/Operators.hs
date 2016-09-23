@@ -57,8 +57,8 @@ getPhase = schedPhase <$> ionCtxt <$> get
 
 -- | Specify a name of a sub-node, returning the parent.  This node
 -- name is used in the paths to the node and in some C identifiers in
--- the generated C code; its purpose is mainly diagnostic and to help the
--- C code be more comprehensible.
+-- the generated C code; its purpose is mainly diagnostic and to help
+-- the C code be more comprehensible.
 ion :: String -- ^ Name
        -> Ion a -- ^ Sub-node
        -> Ion a
@@ -105,10 +105,10 @@ phase :: Integral i =>
          -> Ion a
 phase ph = addAction (phaseSet ph)
 
--- | Specify a period for a sub-node - that is, the interval, in ticks, at
--- which the sub-node is scheduled to repeat.  Period must be positive; a
--- period of 1 indicates that the sub-node executes at every single clock
--- tick.
+-- | Specify a period for a sub-node - that is, the interval, in
+-- ticks, at which the sub-node is scheduled to repeat.  Period must
+-- be positive; a period of 1 indicates that the sub-node executes at
+-- every single clock tick.
 period :: Integral i =>
           i -- ^ Period
           -> Ion a -- ^ Sub-node
@@ -119,9 +119,9 @@ period p = addAction setPeriod
                         then throw $ PeriodMustBePositive (schedPath sch) p'
                         else sch { schedPeriod = p' }
 
--- | Specify a sub-period for a sub-node - that is, the factor by which
--- to multiply the inherited period.  A factor of 2, for instance,
--- would execute the sub-node half as often as its parent.
+-- | Specify a sub-period for a sub-node - that is, the factor by
+-- which to multiply the inherited period.  A factor of 2, for
+-- instance, would execute the sub-node half as often as its parent.
 subPeriod :: Integral i =>
              i -- ^ Factor by which to multiply period (must be positive)
              -> Ion a -- ^ Sub-node
@@ -134,8 +134,8 @@ subPeriod f = addAction divPeriod
 
 -- | Ignore a sub-node completely. This is intended to mask off some
 -- part of a spec while still leaving it present for compilation.
--- Note that this disables only the scheduled effects of a node, and so it
--- has no effect on things like 'newProc'.
+-- Note that this disables only the scheduled effects of a node, and
+-- so it has no effect on things like 'newProc'.
 disable :: Ion a -> Ion ()
 disable _ = return ()
 -- FIXME: Explain this better.  'disable' and 'cond' only apply to certain
@@ -221,9 +221,9 @@ newProcP _ = newProc
 -- takes @X@ arguments and returns nothing, into an Ivory procedure
 -- which takes @Y@ arguments.  If @X@ > @Y@ then zero is passed for
 -- the argument(s); if @Y@ < @X@ then the additional arguments are
--- ignored.  The generated procedure is automatically included as
--- part of the 'Ion' spec.  The main point of this is to simplify
--- the chaining together of Ivory procedures.
+-- ignored.  The generated procedure is automatically included as part
+-- of the 'Ion' spec.  The main point of this is to simplify the
+-- chaining together of Ivory procedures.
 adapt_0_1 :: (IL.IvoryType a, IL.IvoryVar a) =>
              Def ('[] ':-> ()) -> Ion (Def ('[a] ':-> ()))
 adapt_0_1 fn0 = newProc $ \_ -> IL.body $ IL.call_ fn0
@@ -272,10 +272,10 @@ adapt_0_5 fn0 = newProc $ \_ _ _ _ _ -> IL.body $ IL.call_ fn0
 -- above - perhaps using typeclasses and mimicking what Ivory did to
 -- define the functions.
 
--- | Create a timer resource.  The returned 'Ion' still must be called at
--- regular intervals (e.g. by including it in a larger Ion spec that is
--- already active).  See 'startTimer' and 'stopTimer' to actually activate this
--- timer.
+-- | Create a timer resource.  The returned 'Ion' still must be called
+-- at regular intervals (e.g. by including it in a larger Ion spec
+-- that is already active).  See 'startTimer' and 'stopTimer' to
+-- actually activate this timer.
 timer :: (a ~ 'IL.Stored t, Num t, IL.IvoryStore t, IL.IvoryInit t,
           IL.IvoryEq t, IL.IvoryOrd t, IL.IvoryArea a, IL.IvoryZero a) =>
          IL.Proxy t -- ^ Proxy to resolve timer type
@@ -308,8 +308,8 @@ startTimer :: (Num t, IL.IvoryStore t, IL.IvoryZeroVal t) =>
               -> Integer -- ^ Countdown time
               -> ILM.Ivory eff ()
 startTimer ref n = IL.store ref $ fromInteger n
--- FIXME: Will this even work right in usage?  Think of whether or not the
--- variable will be in scope.  Must these be in the same module?
+-- FIXME: Will this even work right in usage?  Think of whether or not
+-- the variable will be in scope.  Must these be in the same module?
 
 -- | Stop a timer from running.
 stopTimer ref = startTimer ref 0
