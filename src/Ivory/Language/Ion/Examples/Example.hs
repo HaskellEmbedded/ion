@@ -26,20 +26,75 @@ main = do
                               , srcLocs = True
                               , outDir = Nothing
                               }
-  ionCompile ivoryOpts "example" test
+  ionCompile ivoryOpts "simpleSchedule" simpleSchedule
   ionCompile ivoryOpts "timer" exampleTimer
-  ionCompile ivoryOpts "chain" exampleChain
+  ionCompile ivoryOpts "exampleChain" exampleChain
+  ionCompile ivoryOpts "giant_ugly_test" test
   return ()
 
 printf :: Def ('[IString] :-> Sint32)
 printf = importProc "printf" "stdio.h"
+
+-- void foo(int16_t)
+foo :: Def ('[] :-> ())
+foo = importProc "foo" "something.h"
+
+-- void bar(int32_t)
+bar :: Def ('[] :-> ())
+bar = importProc "bar" "something.h"
+
+-- uint16_t get_value(int32_t)
+get_value :: Def ('[] :-> Uint16)
+get_value = importProc "get_value" "something.h"
+
+-- bool get_flag(void)
+get_flag :: Def ('[] :-> IBool)
+get_flag = importProc "get_flag" "something.h"
+
+simpleSchedule :: Ion ()
+simpleSchedule = ion "schedule" $ do
+  
+  period 100 $ do
+    variousPhases
+
+  cond ((>? 10) <$> call get_value) $ do
+    ivoryEff $ comment "get_value() > 10"
+    cond (call get_flag) $ do
+      ivoryEff $ comment "get_value() > 10 && get_flag()"
+
+variousPhases :: Ion ()
+variousPhases = do
+    phase 1 $ ivoryEff $ do
+      comment "period 100, phase 1"
+      call_ foo
+    phase 10 $ ion "optional_tag" $ ivoryEff $ do
+      comment "period 100, phase 10"
+      call_ bar
+    disable $ phase 20 $ ivoryEff $ do
+      comment "shouldn't even appear in code"
+      call_ foo
+      call_ bar
+    delay 50 $ do
+      p <- getSched
+      ivoryEff $ do
+        comment "Should be phase 100 + 50"
+        comment ("Reported sched: " ++ show p)
+      delay 10 $ ion "moreDelay" $ do
+        p <- getSched
+        ivoryEff $ do
+          comment "Should be phase 100 + 50 + 10"
+          comment ("Reported sched: " ++ show p)
+      phase 1 $ do
+        ivoryEff $ comment "Should override to phase 1"
+    period 1000 $ do
+      ivoryEff $ comment "Should override all other period"
 
 -- This returns its own entry procedure (init).  The schedule procedure
 -- must be called at regular intervals for the timer to function.
 exampleTimer :: Ion (Def ('[] ':-> ()))
 exampleTimer = ion "timer" $ mdo
   -- Note the use of 'mdo' so that we can define things in a more
-  -- logical order. (
+  -- logical order.
   
   -- Timer is initialized with a Uint16; procedure called at
   -- expiration is fixed at compile-time:
@@ -164,7 +219,8 @@ delayTest = ion "delayTest" $ period 100 $ do
   ion "delayTest2" $ do
     delay 20 $ ivoryEff $ comment "should have inherited delay"
 
--- | Dummy spec for the sake of testing
+-- | The below does nothing useful, but is left here because it served
+-- to illuminate many pesky bugs in Ion.
 test :: Ion ()
 test = ion "Foo" $ do
 
