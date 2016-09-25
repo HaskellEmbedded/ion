@@ -1,5 +1,8 @@
 # Ion
 
+- [Hackage link](https://hackage.haskell.org/package/ion)
+- [Introduction article at HaskellEmbedded](https://haskellembedded.github.io/posts/2016-09-23-introducing-ion.html)
+
 Ion is a (heavily experimental) Haskell EDSL for concurrent, realtime,
 embedded programming.  It performs compile-time scheduling, and
 produces scheduling code with constant memory usage and deterministic
