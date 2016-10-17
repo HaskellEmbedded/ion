@@ -2,6 +2,9 @@ language: haskell
 
 sudo: false
 
+# TODO:
+# Use https://github.com/hvr/multi-ghc-travis with this.
+
 # Cache work from Stack for future builds:
 cache:
   directories:

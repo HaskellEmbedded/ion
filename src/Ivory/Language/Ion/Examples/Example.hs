@@ -11,6 +11,7 @@ Copyright: (c) 2015 Chris Hodapp
 
 module Main where
 
+import           Control.Applicative ( (<$>) )
 import           Data.Word
 
 import           Ivory.Language
